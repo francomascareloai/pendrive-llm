@@ -55,6 +55,12 @@ Ou só `criar.bat` (pergunta a descrição e o nome).
 - Gera o código, salva no arquivo e **tenta compilar** pra avisar se tem erro.
 - Se gerar com erro, rode `revisar.bat programa.c` pra corrigir.
 
+**Mostrar o raciocínio do modelo:**
+```
+criar.bat programa.c "lista ligada com 3 nos" -thinking
+```
+Mostra o que o modelo pensou antes de escrever o código (em cinza, entre `===== THINKING =====`). Útil para debugar — não use durante a prova (só distrai).
+
 ### 3. Revise/corrija um arquivo C — `revisar.bat`
 - **Arraste** seu arquivo `.c` (ou `.h`) em cima de **`revisar.bat`**, OU
 - No terminal: `revisar.bat programa.c`
@@ -69,6 +75,13 @@ Ele faz:
 
 **Salvar direto (sem perguntar):** `revisar.bat programa.c -y`
 (sobrescreve o original e cria `.bak`)
+
+**Mostrar o raciocínio do modelo:**
+```
+revisar.bat programa.c -thinking
+revisar.bat programa.c -y -thinking
+```
+Mostra o que o modelo pensou ao revisar o código (em cinza, entre `===== THINKING =====`). Útil para entender por que ele fez (ou não fez) uma correção.
 
 ### 4. Chat interativo — `chat.bat`
 Chat simples no terminal: digita, enter, ele responde. Pra sair digite `sair`.
@@ -102,6 +115,9 @@ Num PC de 16GB, 32768 é seguro (~7GB total). 65536 só com RAM sobrando.
 ## Sobre o modelo (Ornith-1.0-9B)
 - 9B parâmetros, família Qwen 3.5, otimizado para código.
 - **Modelo de raciocínio**: ele "pensa" antes de responder (separado no campo de raciocínio, não suja a resposta). Ajuda a não alucinar em código, mas deixa o chat simples mais lento (~4 tokens/seg em CPU).
+  - O raciocínio é **sempre gerado** pelo servidor (configurado em `run.bat` com `--reasoning-format deepseek`).
+  - Para **ver** o raciocínio na tela, use a flag `-thinking` em `criar.bat` ou `revisar.bat`.
+  - Sem a flag, o comportamento é idêntico ao de antes — o modelo pensa, mas não mostra.
 - **Suporta tool calling**: os agentes (crush/omp) conseguem ler, editar e compilar arquivos automaticamente.
 - Quantização Q5_K_M (~6GB), bom equilíbrio entre qualidade e tamanho.
 
@@ -156,8 +172,14 @@ G:\ornith-usb\run.bat
 :: 2. criar um programa do zero
 G:\ornith-usb\criar.bat fatorial.c "fatorial recursivo de um numero digitado"
 
+:: 2b. criar mostrando o raciocinio do modelo (opcional, para debug)
+G:\ornith-usb\criar.bat fatorial.c "fatorial recursivo" -thinking
+
 :: 3. revisar/corrigir um arquivo que nao compila
 G:\ornith-usb\revisar.bat fatorial.c
+
+:: 3b. revisar salvando por cima direto + mostrando raciocinio
+G:\ornith-usb\revisar.bat fatorial.c -y -thinking
 
 :: 4. chat (perguntar/explorar sem editar arquivos)
 G:\ornith-usb\chat.bat
