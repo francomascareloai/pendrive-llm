@@ -6,7 +6,7 @@
     "fallback": {
         "api_url": "https://api.neuralwatt.com/v1/chat/completions",
         "api_key": "sk-212e66e55f187421214b742e82c6e6fb1ec8a6ef0c295f88f76678d7dc4623bd",
-        "model": "glm-5.2"
+        "model": "kimi-k2.7-code"
     },
     "capture_interval": 10,
     "min_api_interval": 20,
