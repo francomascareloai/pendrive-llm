@@ -210,7 +210,7 @@ def img_to_b64(img):
 def ask_llm(
     images_b64,
     prompt,
-    retry=2,
+    retry=1,
     model_override=None,
     url_override=None,
     key_override=None,
@@ -245,7 +245,7 @@ def ask_llm(
 
     for attempt in range(retry + 1):
         try:
-            resp = requests.post(api_url, headers=headers, json=payload, timeout=60)
+            resp = requests.post(api_url, headers=headers, json=payload, timeout=180)
             resp.raise_for_status()
             data = resp.json()
             msg = data["choices"][0]["message"]
@@ -380,11 +380,15 @@ def capture_loop():
         _current_req_id
     multi_batch = []
     multi_mode = False
+    last_auto = 0
 
     while not stop.is_set():
-        # ── Process commands (manual always works) ──
-        try:
-            cmd = cmd_q.get_nowait()
+        # ── Process ALL pending commands immediately ──
+        while True:
+            try:
+                cmd = cmd_q.get_nowait()
+            except Empty:
+                break
             action = cmd["action"]
 
             try:
@@ -451,61 +455,60 @@ def capture_loop():
                 logging.error(f"Erro processando comando {action}: {e}")
                 out_q.put(("answer", "Erro Interno"))
 
-        except Empty:
-            pass
-
         # ── Auto periodic capture (paused during multi-mode) ──
         if not multi_mode:
             now = time.time()
+            if now - last_auto >= max(CAPTURE_INTERVAL, 1):
+                last_auto = now
 
-            # Check for screen changes
-            try:
-                img = capture_full()
-                proc = process_image(img)
-                h = hashlib.md5(proc.tobytes()).hexdigest()
+                # Check for screen changes
+                try:
+                    img = capture_full()
+                    proc = process_image(img)
+                    h = hashlib.md5(proc.tobytes()).hexdigest()
 
-                with _lock:
-                    changed = h != _last_hash
+                    with _lock:
+                        changed = h != _last_hash
+                        if changed:
+                            _last_hash = h
+
                     if changed:
-                        _last_hash = h
+                        # Screen changed → start grace period (don't clear yet)
+                        _pending_change = True
+                        _pending_change_time = now
+                        logging.debug(
+                            f"screen changed, grace until {now + GRACE_PERIOD:.0f}"
+                        )
 
-                if changed:
-                    # Screen changed → start grace period (don't clear yet)
-                    _pending_change = True
-                    _pending_change_time = now
-                    logging.debug(
-                        f"screen changed, grace until {now + GRACE_PERIOD:.0f}"
-                    )
+                except Exception as e:
+                    logging.error(f"capture: {e}")
 
-            except Exception as e:
-                logging.error(f"capture: {e}")
+                # Handle pending change (grace period expired)
+                if _pending_change and (now - _pending_change_time >= GRACE_PERIOD):
+                    _pending_change = False
+                    out_q.put(("clear", ""))
 
-            # Handle pending change (grace period expired)
-            if _pending_change and (now - _pending_change_time >= GRACE_PERIOD):
-                _pending_change = False
-                out_q.put(("clear", ""))
+                    with _lock:
+                        elapsed = now - _last_api_call
+                        can_send = elapsed >= MIN_API_INTERVAL
 
-                with _lock:
-                    elapsed = now - _last_api_call
-                    can_send = elapsed >= MIN_API_INTERVAL
+                    if can_send:
+                        try:
+                            b64 = img_to_b64(process_image(capture_full()))
+                            with _req_lock:
+                                _current_req_id += 1
+                                req = _current_req_id
+                            threading.Thread(
+                                target=process_llm_bg,
+                                args=(req, [b64], AUTO_PROMPT),
+                                daemon=True,
+                            ).start()
+                            with _lock:
+                                _last_api_call = time.time()
+                        except Exception as e:
+                            logging.error(f"auto: {e}")
 
-                if can_send:
-                    try:
-                        b64 = img_to_b64(process_image(capture_full()))
-                        with _req_lock:
-                            _current_req_id += 1
-                            req = _current_req_id
-                        threading.Thread(
-                            target=process_llm_bg,
-                            args=(req, [b64], AUTO_PROMPT),
-                            daemon=True,
-                        ).start()
-                        with _lock:
-                            _last_api_call = time.time()
-                    except Exception as e:
-                        logging.error(f"auto: {e}")
-
-        stop.wait(max(CAPTURE_INTERVAL, 1))
+        stop.wait(1)
 
 
 # ─── Region Selector ────────────────────────────────────────────────────────
