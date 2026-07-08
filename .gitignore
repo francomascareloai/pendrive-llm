@@ -80,6 +80,8 @@ minicpm5-1b/teste_err.txt
 minicpm5-1b/teste_out.txt
 minicpm5-1b/req_curto.json
 minicpm5-1b/resp_curto.json
+minicpm5-1b/analisa_curto.ps1
+minicpm5-1b/*_curto.*
 
 # ── OS / editor ──
 Thumbs.db
