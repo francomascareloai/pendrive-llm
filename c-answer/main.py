@@ -631,11 +631,25 @@ class Overlay:
     def _apply_dark_tray(self, icon):
         try:
             hwnd = icon._hwnd
-            DwmSetWindowAttribute = ctypes.windll.dwmapi.DwmSetWindowAttribute
+            dwm = ctypes.windll.dwmapi
+            dwm.DwmSetWindowAttribute.argtypes = [
+                ctypes.wintypes.HWND,
+                ctypes.c_uint,
+                ctypes.c_void_p,
+                ctypes.c_uint,
+            ]
+            dwm.DwmSetWindowAttribute.restype = ctypes.c_long
             # 20 para Win11, 19 para Win10 antigo
-            DwmSetWindowAttribute(hwnd, 20, ctypes.byref(ctypes.c_int(1)), 4)
-            DwmSetWindowAttribute(hwnd, 19, ctypes.byref(ctypes.c_int(1)), 4)
-            ctypes.windll.uxtheme.SetWindowTheme(hwnd, "DarkMode_Explorer", None)
+            dwm.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(ctypes.c_int(1)), 4)
+            dwm.DwmSetWindowAttribute(hwnd, 19, ctypes.byref(ctypes.c_int(1)), 4)
+            ux = ctypes.windll.uxtheme
+            ux.SetWindowTheme.argtypes = [
+                ctypes.wintypes.HWND,
+                ctypes.wintypes.LPCWSTR,
+                ctypes.wintypes.LPCWSTR,
+            ]
+            ux.SetWindowTheme.restype = ctypes.c_long
+            ux.SetWindowTheme(hwnd, "DarkMode_Explorer", None)
         except Exception as e:
             logging.debug(f"Dark mode dwm falhou: {e}")
         icon.visible = True
