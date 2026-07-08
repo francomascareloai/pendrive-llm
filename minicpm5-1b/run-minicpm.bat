@@ -13,6 +13,27 @@ echo.
 REM --- le configs salvas (config.bat), com defaults seguros pra 16GB ---
 set "CTX=8192"
 if exist "config\contexto.txt" set /p CTX=<"config\contexto.txt"
+
+REM --- protecao contra OOM: se o PC tem pouca RAM, reduz o contexto automaticamente ---
+REM O MiniCPM5-1B usa ~700MB fixos (modelo) + KV cache por token de contexto.
+REM Em PC com pouca RAM livre, 8192 tokens podem estourar a RAM e o Windows mata
+REM o servidor sem avisar (crash silencioso). Se o usuario nao definiu contexto
+REM explicitamente (arquivo ausente), detecta RAM e ajusta.
+set "RAM_MB=16384"
+for /f "delims=" %%R in ('powershell -NoProfile -Command "[math]::Floor((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1MB)" 2^>nul') do set "RAM_MB=%%R"
+if "%RAM_MB%"=="" set "RAM_MB=16384"
+if not exist "config\contexto.txt" (
+  if %RAM_MB% LSS 8000 (
+    set "CTX=4096"
+    echo [AVISO] PC com %RAM_MB% MB de RAM: usando contexto 4096 (seguro).
+    echo         Para mais contexto, feche outros programas e rode config.bat.
+  ) else if %RAM_MB% LSS 12000 (
+    set "CTX=6144"
+    echo [INFO] PC com %RAM_MB% MB de RAM: usando contexto 6144.
+  ) else (
+    set "CTX=8192"
+  )
+)
 set "THREADS=%NUMBER_OF_PROCESSORS%"
 if "%THREADS%"=="" set "THREADS=8"
 if exist "config\threads.txt" set /p THREADS=<"config\threads.txt"

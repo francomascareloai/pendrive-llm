@@ -99,6 +99,14 @@ TROUBLESHOOTING
                               estavel (LLAMA_ARG_CHAT_TEMPLATE_KWARGS com
                               enable_thinking=false via env var). Se editou o
                               .bat e removeu essa env var, restaure-a.
+- servidor cresce em RAM   -> O llama-server tem um vazamento de memoria conhecido:
+  (vazamento de memoria)       cresce ~6 MB por requisicao e nao libera. Apos
+                              ~200-300 requisicoes em PC de 16GB, pode estourar
+                              a RAM e crashar. Solucao: feche e reabra o
+                              run-minicpm.bat periodicamente (a cada ~100
+                              requisicoes, ou se notar lentidao). O agente.bat
+                              agora compacta o historico (max 30 mensagens) para
+                              reduzir o crescimento do contexto.
 - sessao do crush corrompida-> rode limpar.bat (apaga o banco de sessoes, mantem config)
 - acentos quebrados        -> o .bat ja faz chcp 65001 (UTF-8); use terminal moderno
 - "VCRUNTIME140.dll nao    -> as DLLs do VC++ runtime ja vem em llama\. Se ainda

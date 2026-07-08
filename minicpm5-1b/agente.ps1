@@ -138,20 +138,44 @@ function Executar-Tool($nome, $toolArgs) {
         $psi.FileName = "cmd.exe"
         $psi.Arguments = "/c " + $cmd
         $psi.UseShellExecute = $false
+        $psi.RedirectStandardInput = $true
         $psi.RedirectStandardOutput = $true
         $psi.RedirectStandardError = $true
         $psi.CreateNoWindow = $true
         $psi.WorkingDirectory = (Get-Location).Path
         $p = [System.Diagnostics.Process]::Start($psi)
-        $stdout = $p.StandardOutput.ReadToEnd()
-        $stderr = $p.StandardError.ReadToEnd()
-        $p.WaitForExit(30000) | Out-Null
+        # Fecha stdin: programas com scanf/gets recebem EOF e retornam em vez de
+        # travar aguardando teclado. Sem isto, ReadToEnd bloqueia pra sempre.
+        $p.StandardInput.Close()
+        # Le assincrono evita o deadlock de buffer de pipe (stdout/stderr cheios
+        # bloqueando o processo) e deixa o WaitForExit(30000) ser alcancado.
+        $sb = New-Object System.Text.StringBuilder
+        $errSb = New-Object System.Text.StringBuilder
+        $outh = Register-ObjectEvent -InputObject $p -EventName OutputDataReceived -MessageData $sb -Action { if ($EventArgs.Data) { [void]$MessageData.AppendLine($EventArgs.Data) } }
+        $errh = Register-ObjectEvent -InputObject $p -EventName ErrorDataReceived -MessageData $errSb -Action { if ($EventArgs.Data) { [void]$MessageData.AppendLine($EventArgs.Data) } }
+        $p.BeginOutputReadLine()
+        $p.BeginErrorReadLine()
+        $timeout = $false
+        if (-not $p.WaitForExit(30000)) {
+          $timeout = $true
+          try { $p.Kill() } catch {}
+        }
+        Unregister-Event -SourceIdentifier $outh.Name -ErrorAction SilentlyContinue
+        Unregister-Event -SourceIdentifier $errh.Name -ErrorAction SilentlyContinue
+        $outh | Remove-Job -Force -ErrorAction SilentlyContinue
+        $errh | Remove-Job -Force -ErrorAction SilentlyContinue
+        $stdout = $sb.ToString()
+        $stderr = $errSb.ToString()
+        if ($timeout) {
+          return "[ERRO] comando excedeu 30s (provavelmente interativo/travou). Processo morto."
+        }
         $saida = $stdout
         if ($stderr) { $saida += "`n" + $stderr }
         $saida += "`n[codigo de saida: $($p.ExitCode)]"
         if ([string]::IsNullOrWhiteSpace($stdout) -and [string]::IsNullOrWhiteSpace($stderr)) {
           $saida = "[OK] comando executado (sem saida). [codigo de saida: $($p.ExitCode)]"
         }
+        $p.Dispose()
         return $saida
       }
       default { return "[ERRO] ferramenta desconhecida: $nome" }
@@ -159,6 +183,20 @@ function Executar-Tool($nome, $toolArgs) {
   } catch {
     return "[ERRO] $($_.Exception.Message)"
   }
+}
+
+# janela deslizante do historico. Em sessoes longas o historico cresce sem
+# limite e estoura a janela de contexto do modelo (8192 tokens no 1B). Esta
+# funcao poda do inicio mantendo as ultimas N mensagens, avancando o corte ate
+# cair numa mensagem 'user'/'assistant' (nunca corta no meio de um par
+# tool_call/tool_result, quebraria o protocolo). O system prompt e sempre
+# reenviado a parte.
+function Compactar-Historico {
+  param([array]$Hist, [int]$MaxMensagens = 30)
+  if ($null -eq $Hist -or $Hist.Count -le $MaxMensagens) { return $Hist }
+  $corte = $Hist.Count - $MaxMensagens
+  while ($corte -lt $Hist.Count -and $Hist[$corte].role -eq 'tool') { $corte++ }
+  return $Hist[$corte..($Hist.Count - 1)]
 }
 
 $system = @"
@@ -211,9 +249,12 @@ while ($true) {
 
   $historico += @{ role = "user"; content = $msg }
 
+  # loop de tool calling: o modelo pode chamar varias ferramentas em sequencia
   $turno = 0
   while ($turno -lt 15) {
     $turno++
+    # poda o historico se crescer demais (mantem as ultimas 30 mensagens)
+    $historico = Compactar-Historico $historico
     $body = @{
       model = "minicpm5-1b"
       messages = @(@{ role = "system"; content = $system }) + $historico
@@ -226,12 +267,33 @@ while ($true) {
     } | ConvertTo-Json -Depth 20 -Compress
 
     if ($modoInterativo) { Write-Host "pensando..." -ForegroundColor DarkGray }
-    try {
-      $resp = Invoke-RestMethod -Uri $Url -Method Post -ContentType "application/json; charset=utf-8" -Body $body -TimeoutSec 600
-    } catch {
-      Write-Host "[ERRO] Falha ao chamar o modelo: $($_.Exception.Message)" -ForegroundColor Red
-      break
+    # retry com backoff: o servidor pode cair no meio de uma geracao (OOM em
+    # PC com pouca RAM). Tenta ate 3x com pausa crescente. Se o servidor morreu,
+    # avisa e sai do loop de tool calling (nao adianta insistir).
+    $resp = $null
+    for ($tent = 1; $tent -le 3; $tent++) {
+      try {
+        $resp = Invoke-RestMethod -Uri $Url -Method Post -ContentType "application/json; charset=utf-8" -Body $body -TimeoutSec 600
+        break
+      } catch {
+        if ($tent -lt 3) {
+          $espera = $tent * 5
+          Write-Host "[AVISO] Servidor nao respondeu (tentativa $tent/3). Aguardando ${espera}s..." -ForegroundColor Yellow
+          Start-Sleep -Seconds $espera
+          try { Invoke-RestMethod -Uri "http://127.0.0.1:$Porta/health" -TimeoutSec 3 | Out-Null }
+          catch {
+            Write-Host "[ERRO] O servidor caiu (provavelmente RAM insuficiente)." -ForegroundColor Red
+            Write-Host "       Feche o run-minicpm.bat, feche outros programas pesados, e suba o servidor de novo." -ForegroundColor Yellow
+            $resp = $null
+            break
+          }
+        } else {
+          Write-Host "[ERRO] Falha ao chamar o modelo apos 3 tentativas: $($_.Exception.Message)" -ForegroundColor Red
+          Write-Host "       Se o servidor caiu, reinicie o run-minicpm.bat (feche outros programas pesados)." -ForegroundColor Yellow
+        }
+      }
     }
+    if (-not $resp) { break }
 
     $tc = $resp.choices[0].message.tool_calls
     if ($null -eq $tc -or $tc.Count -eq 0) {
@@ -279,6 +341,13 @@ while ($true) {
       Write-Host "  -> $resumo" -ForegroundColor DarkGray
       $historico += @{ role = "tool"; tool_call_id = [string]$call.id; content = $resultado }
     }
+  }
+
+  # se saiu do loop por limite de turnos (nao por resposta final), avisa.
+  if ($turno -ge 15) {
+    Write-Host "[AVISO] Limite de 15 turnos de ferramentas atingido; interrompendo esta tarefa." -ForegroundColor Yellow
+    Write-Host "        (continue pedindo, ou digite 'sair' para encerrar.)" -ForegroundColor Yellow
+    $historico += @{ role = "assistant"; content = "[interrompido por limite de turnos de ferramentas]" }
   }
 }
 

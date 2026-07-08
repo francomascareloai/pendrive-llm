@@ -241,7 +241,8 @@ if (-not [string]::IsNullOrEmpty($tarefaInicial)) { $fila += $tarefaInicial }
 while ($true) {
   if ($fila.Count -gt 0) {
     $msg = $fila[0]
-    $fila = $fila[1..($fila.Count)]
+    # slice robusto: 1 elemento -> fila vazia (slice [1..1] em PS 5.1 retorna $null, quebra iteracao).
+    if ($fila.Count -gt 1) { $fila = $fila[1..($fila.Count - 1)] } else { $fila = @() }
     if ($modoInterativo) { Write-Host "> $msg" -ForegroundColor Green }
   } else {
     if (-not $modoInterativo) { break }

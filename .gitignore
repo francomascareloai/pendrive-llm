@@ -66,6 +66,19 @@ Consulta_Prova_C/exemplos/example.txt
 /_*.bat
 /_*.ps1
 
+# ── Scripts de teste temporários dos modelos (check, idle_check, mem_test, etc.) ──
+minicpm5-1b/check.ps1
+minicpm5-1b/idle_check.ps1
+minicpm5-1b/mem_test.ps1
+minicpm5-1b/proc.ps1
+minicpm5-1b/quick_test.ps1
+minicpm5-1b/start-test.bat
+minicpm5-1b/test_model.ps1
+minicpm5-1b/teste_200linhas.ps1
+minicpm5-1b/final_test.ps1
+minicpm5-1b/teste_err.txt
+minicpm5-1b/teste_out.txt
+
 # ── OS / editor ──
 Thumbs.db
 desktop.ini
