@@ -10,7 +10,9 @@ param(
   # -Salvar: sobrescreve o original sem perguntar (cria .bak). Default: pergunta.
   [switch]$Salvar,
   # -Novo: sempre salva como .corrigido.c sem perguntar. Default: pergunta.
-  [switch]$Novo
+  [switch]$Novo,
+  # -Thinking: mostra o raciocinio do modelo antes do codigo corrigido
+  [switch]$Thinking
 )
 
 $ErrorActionPreference = "Stop"
@@ -90,6 +92,7 @@ try {
 }
 
 Write-Host "Enviando para revisao..." -ForegroundColor Cyan
+if ($Thinking) { Write-Host "(mostrando thinking do modelo)" -ForegroundColor DarkGray }
 # retry com backoff: o servidor pode cair no meio de uma geracao longa (OOM em
 # PC com pouca RAM). Tenta ate 3x com pausa crescente, avisando o usuario.
 $resp = $null
@@ -118,6 +121,18 @@ for ($tent = 1; $tent -le 3; $tent++) {
 if (-not $resp) { exit 1 }
 
 $conteudo = $resp.choices[0].message.content
+
+# se o modelo gerou raciocinio (reasoning_content) e o usuario pediu -Thinking, mostra
+if ($Thinking -and $resp.choices[0].message.PSObject.Properties.Name -contains "reasoning_content") {
+    $rc = $resp.choices[0].message.reasoning_content
+    if ($rc -and $rc.Trim()) {
+        Write-Host ""
+        Write-Host "===== THINKING =====" -ForegroundColor DarkMagenta
+        Write-Host $rc.Trim() -ForegroundColor DarkGray
+        Write-Host "====================" -ForegroundColor DarkMagenta
+        Write-Host ""
+    }
+}
 
 # avisa se a resposta foi truncada por limite de tokens (codigo corrigido incompleto)
 $finish = $resp.choices[0].finish_reason

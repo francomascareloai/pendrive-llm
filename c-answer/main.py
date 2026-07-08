@@ -76,8 +76,12 @@ if config is None:
 API_KEY = config.get("api_key", "")
 API_URL = config.get("api_url", "https://openrouter.ai/api/v1/chat/completions")
 MODEL = config.get("model", "google/gemini-2.5-flash-001")
-FALLBACK_MODEL = config.get("fallback_model", "openai/gpt-4o-mini")
 EXTRA_HEADERS = config.get("extra_headers", {})
+_fb = config.get("fallback", {})
+FALLBACK_API_URL = _fb.get("api_url", "")
+FALLBACK_API_KEY = _fb.get("api_key", "")
+FALLBACK_MODEL = _fb.get("model", "")
+FALLBACK_HEADERS = _fb.get("extra_headers", {})
 CAPTURE_INTERVAL = config.get("capture_interval", 10)
 MIN_API_INTERVAL = config.get("min_api_interval", 20)
 GRACE_PERIOD = config.get("grace_period", 12)
@@ -203,8 +207,20 @@ def img_to_b64(img):
 # ─── LLM ─────────────────────────────────────────────────────────────────────
 
 
-def ask_llm(images_b64, prompt, retry=2, model_override=None):
-    if (not API_KEY) or (API_KEY.startswith("sk-") and len(API_KEY) < 20):
+def ask_llm(
+    images_b64,
+    prompt,
+    retry=2,
+    model_override=None,
+    url_override=None,
+    key_override=None,
+    headers_override=None,
+):
+    api_url = url_override or API_URL
+    api_key = key_override or API_KEY
+    extra_headers = headers_override if headers_override is not None else EXTRA_HEADERS
+
+    if (not api_key) or (api_key.startswith("sk-") and len(api_key) < 20):
         return "KEY?"
 
     content = [{"type": "text", "text": prompt}]
@@ -214,12 +230,12 @@ def ask_llm(images_b64, prompt, retry=2, model_override=None):
         )
 
     headers = {
-        "Authorization": f"Bearer {API_KEY}",
+        "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
         "HTTP-Referer": "https://github.com/c-answer",
         "X-Title": "c-answer",
     }
-    headers.update(EXTRA_HEADERS)
+    headers.update(extra_headers)
 
     payload = {
         "model": model_override if model_override else MODEL,
@@ -229,7 +245,7 @@ def ask_llm(images_b64, prompt, retry=2, model_override=None):
 
     for attempt in range(retry + 1):
         try:
-            resp = requests.post(API_URL, headers=headers, json=payload, timeout=60)
+            resp = requests.post(api_url, headers=headers, json=payload, timeout=60)
             resp.raise_for_status()
             data = resp.json()
             msg = data["choices"][0]["message"]
@@ -322,13 +338,24 @@ _req_lock = threading.Lock()
 def process_llm_bg(req_id, images_b64, prompt, is_multi=False):
     global _ans_counter
     ans = ask_llm(images_b64, prompt)
-    if ans.startswith("Erro"):
+    if ans.startswith("Erro") or ans == "KEY?":
         # Don't burn a fallback call if a newer capture already superseded us.
         with _req_lock:
             if req_id != _current_req_id:
                 return
-        out_q.put(("status", f"{ans}... Fallback IA!"))
-        ans = ask_llm(images_b64, prompt, retry=1, model_override=FALLBACK_MODEL)
+        if FALLBACK_API_URL and FALLBACK_API_KEY and FALLBACK_MODEL:
+            out_q.put(("status", f"{ans}... Fallback NeuralWatt!"))
+            ans = ask_llm(
+                images_b64,
+                prompt,
+                retry=1,
+                model_override=FALLBACK_MODEL,
+                url_override=FALLBACK_API_URL,
+                key_override=FALLBACK_API_KEY,
+                headers_override=FALLBACK_HEADERS,
+            )
+        else:
+            out_q.put(("status", f"{ans}... sem fallback!"))
 
     with _req_lock:
         if req_id != _current_req_id:

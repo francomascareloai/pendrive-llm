@@ -11,8 +11,15 @@ REM       criar.bat programa.c "lista ligada com 3 nos"
 
 set "SAIDA=%~1"
 set "DESC=%~2"
+set "THINKING="
 
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0criar.ps1" -Saida "%SAIDA%" -Desc "%DESC%"
+REM --- flag -thinking: mostra o raciocinio do modelo ---
+:parse_args
+if /i "%~3"=="-thinking" set "THINKING=-Thinking"
+if /i "%~4"=="-thinking" set "THINKING=-Thinking"
+if /i "%~5"=="-thinking" set "THINKING=-Thinking"
+
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0criar.ps1" -Saida "%SAIDA%" -Desc "%DESC%" %THINKING%
 
 echo.
 pause

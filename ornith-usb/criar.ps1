@@ -7,7 +7,9 @@ param(
   # nome do arquivo de saida (opcional — se vazio, pergunta)
   [string]$Saida,
   # descricao do programa (opcional — se vazio, pergunta)
-  [string]$Desc
+  [string]$Desc,
+  # -Thinking: mostra o raciocinio do modelo antes do codigo gerado
+  [switch]$Thinking
 )
 
 $ErrorActionPreference = "Stop"
@@ -67,7 +69,11 @@ $body = @{
 } | ConvertTo-Json -Depth 10 -Compress
 
 Write-Host ""
-Write-Host "Gerando programa..." -ForegroundColor Cyan
+if ($Thinking) {
+  Write-Host "Gerando programa (com thinking visivel)..." -ForegroundColor Cyan
+} else {
+  Write-Host "Gerando programa..." -ForegroundColor Cyan
+}
 # retry com backoff: o servidor pode cair no meio de uma geracao longa (OOM em
 # PC com pouca RAM). Tenta ate 3x com pausa crescente, avisando o usuario.
 $resp = $null
@@ -96,6 +102,18 @@ for ($tent = 1; $tent -le 3; $tent++) {
 if (-not $resp) { exit 1 }
 
 $conteudo = $resp.choices[0].message.content
+
+# se o modelo gerou raciocinio (reasoning_content) e o usuario pediu -Thinking, mostra
+if ($Thinking -and $resp.choices[0].message.PSObject.Properties.Name -contains "reasoning_content") {
+    $rc = $resp.choices[0].message.reasoning_content
+    if ($rc -and $rc.Trim()) {
+        Write-Host ""
+        Write-Host "===== THINKING =====" -ForegroundColor DarkMagenta
+        Write-Host $rc.Trim() -ForegroundColor DarkGray
+        Write-Host "====================" -ForegroundColor DarkMagenta
+        Write-Host ""
+    }
+}
 
 # avisa se a resposta foi truncada por limite de tokens (programa grande/incompleto)
 $finish = $resp.choices[0].finish_reason
