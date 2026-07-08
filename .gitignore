@@ -84,6 +84,7 @@ minicpm5-1b/analisa_curto.ps1
 minicpm5-1b/*_curto.*
 minicpm5-1b/teste_rapido.ps1
 minicpm5-1b/teste_curto_gerado.c
+minicpm5-1b/*_completo.*
 
 # ── Lixo acidental (redirect de cmd malformado) ──
 ornith-usb/)
