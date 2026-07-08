@@ -14,9 +14,10 @@ llama/
 crush/crush.exe
 omp/omp.exe
 
-# ── Runtime dos agentes (DBs, logs, sessões, config portátil gerado) ──
+# ── Runtime dos agentes (DBs, logs, sessões) ──
+# NOTA: crush/config-xdg/ É versionado (config portátil do agente crush — fonte).
+# Só crush/data/ é runtime (DBs, logs, sessões geradas em uso).
 crush/data/
-crush/config-xdg/
 
 # ── Python (c-answer) ──
 __pycache__/

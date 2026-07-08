@@ -26,9 +26,11 @@ if not exist "%SERVER%" (
   exit /b 1
 )
 
-REM --- threads: detecta o maximo disponivel no PC, com fallback seguro ---
+REM --- threads: detecta cores logicos e ajusta pra fisicos (otimo em CPU) ---
 REM NUMBER_OF_PROCESSORS e sempre definido no Windows (cores logicos).
-REM Se vier vazio ou invalido, cai pra 4. Nunca divide cegamente: usa o que tem.
+REM Em CPUs com muitos threads (16+), usar TODOS os logicos causa thrashing
+REM (cai pra ~1 tok/s). Cores FISICOS (metade dos logicos) e o ponto otimo.
+REM Se vier vazio/invalido, cai pra 4.
 set "NPROC=%NUMBER_OF_PROCESSORS%"
 if "%NPROC%"=="" set "NPROC=4"
 set /a "NPROC_TEST=%NPROC%+0" 2>nul
@@ -36,6 +38,9 @@ if not defined NPROC_TEST set "NPROC=4"
 if "%NPROC_TEST%"=="0" set "NPROC=4"
 if "%NPROC_TEST%"=="" set "NPROC=4"
 set "THREADS=%NPROC%"
+REM mais de 12 logicos: usa metade (cores fisicos). Evita thrashing em Ryzen/i7.
+if %NPROC_TEST% GTR 12 set /a "THREADS=%NPROC%/2"
+if %NPROC_TEST% LSS 2 set "THREADS=4"
 
 REM --- porta especifica p/ nao colidir com servicos da faculdade ---
 set "PORT=8137"

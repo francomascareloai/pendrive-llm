@@ -67,19 +67,16 @@ goto menu
 :status
 echo.
 echo Verificando servidor na porta 8137...
-powershell -NoProfile -Command "try { $h = Invoke-RestMethod -Uri 'http://127.0.0.1:8137/health' -TimeoutSec 3; Write-Host '[OK] Servidor rodando:' $h.status -ForegroundColor Green } catch { Write-Host '[OFF] Servidor nao esta rodando. Suba com a opcao 1.' -ForegroundColor Red }"
+powershell -NoProfile -Command "try { $r = Invoke-WebRequest -Uri 'http://127.0.0.1:8137/health' -TimeoutSec 3 -UseBasicParsing; if ($r.StatusCode -eq 200) { Write-Host '[OK] Servidor rodando.' -ForegroundColor Green } } catch { $sc = $_.Exception.Response.StatusCode.value__; if ($sc -eq 503) { Write-Host '[CARREGANDO] Servidor subindo o modelo, aguarde 30-60s...' -ForegroundColor Yellow } else { Write-Host '[OFF] Servidor nao esta rodando. Suba com a opcao 1.' -ForegroundColor Red } }"
 echo.
 pause
 goto menu
 
 :parar
 echo.
-taskkill /f /im llama-server.exe >nul 2>&1
-if %errorlevel%==0 (
-  echo [OK] Servidor parado.
-) else (
-  echo [INFO] Nao havia servidor rodando.
-)
+REM Para APENAS o servidor da porta 8137 (Ornith), preservando o MiniCPM5 na 8138.
+REM taskkill /im llama-server.exe mataria TODOS os servidores por nome de imagem.
+powershell -NoProfile -Command "$c = Get-NetTCPConnection -LocalPort 8137 -State Listen -ErrorAction SilentlyContinue; if ($c) { Stop-Process -Id $c.OwningProcess -Force; Write-Host '[OK] Servidor Ornith (porta 8137) parado.' -ForegroundColor Green } else { Write-Host '[INFO] Nenhum servidor na porta 8137.' -ForegroundColor Yellow }"
 echo.
 pause
 goto menu

@@ -192,6 +192,19 @@ function Executar-Tool($nome, $toolArgs) {
   return $resultado
 }
 
+# T1: janela deslizante do historico. Em sessoes longas o historico cresce sem
+# limite e estoura a janela de contexto do modelo. Esta funcao poda do inicio
+# mantendo as ultimas N mensagens, avancando o corte ate cair numa mensagem
+# 'user'/'assistant' (nunca corta no meio de um par tool_call/tool_result, que
+# quebraria o protocolo). O system prompt e sempre reenviado a parte.
+function Compactar-Historico {
+  param([array]$Hist, [int]$MaxMensagens = 40)
+  if ($null -eq $Hist -or $Hist.Count -le $MaxMensagens) { return $Hist }
+  $corte = $Hist.Count - $MaxMensagens
+  while ($corte -lt $Hist.Count -and $Hist[$corte].role -eq 'tool') { $corte++ }
+  return $Hist[$corte..($Hist.Count - 1)]
+}
+
 $system = @"
 Voce e o Ornith, um agente de programacao em C que opera no terminal Windows (cmd).
 Responda em portugues do Brasil.
@@ -246,6 +259,8 @@ while ($true) {
   $turno = 0
   while ($turno -lt 15) {
     $turno++
+    # T1: poda o historico se crescer demais (mantem as ultimas 40 mensagens)
+    $historico = Compactar-Historico $historico
     $body = @{
       model = "ornith"
       messages = @(@{ role = "system"; content = $system }) + $historico
@@ -320,6 +335,13 @@ while ($true) {
       Write-Host "  -> $resumo" -ForegroundColor DarkGray
       $historico += @{ role = "tool"; tool_call_id = [string]$call.id; content = $resultado }
     }
+  }
+
+  # T2: se saiu do loop por limite de turnos (nao por resposta final), avisa.
+  if ($turno -ge 15) {
+    Write-Host "[AVISO] Limite de 15 turnos de ferramentas atingido; interrompendo esta tarefa." -ForegroundColor Yellow
+    Write-Host "        (continue pedindo, ou digite 'sair' para encerrar.)" -ForegroundColor Yellow
+    $historico += @{ role = "assistant"; content = "[interrompido por limite de turnos de ferramentas]" }
   }
 }
 

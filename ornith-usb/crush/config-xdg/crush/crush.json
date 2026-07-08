@@ -1,0 +1,51 @@
+{
+  "$schema": "https://charm.land/crush.json",
+  "models": {
+    "large": {
+      "provider": "local-llama",
+      "model": "ornith"
+    },
+    "small": {
+      "provider": "local-llama",
+      "model": "ornith"
+    }
+  },
+  "providers": {
+    "local-llama": {
+      "type": "openai-compat",
+      "base_url": "http://127.0.0.1:8137/v1",
+      "api_key": "sk-no-key-needed",
+      "models": [
+        {
+          "id": "ornith",
+          "name": "Ornith 1.0 9B",
+          "cost_per_1m_in": 0,
+          "cost_per_1m_out": 0,
+          "cost_per_1m_in_cached": 0,
+          "cost_per_1m_out_cached": 0,
+          "context_window": 32768,
+          "default_max_tokens": 4096,
+          "can_reason": true,
+          "supports_attachments": false
+        }
+      ]
+    }
+  },
+  "options": {
+    "disable_default_providers": true,
+    "disable_metrics": true,
+    "disable_auto_summarize": true,
+    "auto_lsp": false,
+    "context_paths": []
+  },
+  "permissions": {
+    "allowed_tools": [
+      "view",
+      "ls",
+      "grep",
+      "edit",
+      "write",
+      "bash"
+    ]
+  }
+}

@@ -6,9 +6,17 @@ cd /d "%~dp0"
 REM --- config.bat: ajusta o tamanho da janela de contexto (em tokens) ---
 REM Salva em config\contexto.txt — o run.bat le esse valor ao subir.
 REM Menor contexto = menos RAM e mais rapido. Maior = aceita programas maiores.
+REM Auto-detecta RAM pra sugerir um valor seguro pro PC atual.
 
 if not exist "config" mkdir "config"
 set "CFG=config\contexto.txt"
+
+REM --- detecta RAM total (MB) via PowerShell ---
+REM wmic foi REMOVIDO no Windows 11 24H2+ e set/a estoura int32 com RAM em bytes.
+REM Get-CimInstance funciona em todo Windows 8+ e a divisao em .NET nao estoura.
+set "RAM_MB=16384"
+for /f "delims=" %%R in ('powershell -NoProfile -Command "[math]::Floor((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1MB)" 2^>nul') do set "RAM_MB=%%R"
+if "%RAM_MB%"=="" set "RAM_MB=16384"
 
 REM le valor atual (default 32768)
 set "ATUAL=32768"
@@ -18,7 +26,8 @@ echo ============================================
 echo   Janela de contexto (tokens)
 echo ============================================
 echo.
-echo   Atual: %ATUAL% tokens
+echo   PC detectado:  %RAM_MB% MB de RAM
+echo   Atual:         %ATUAL% tokens
 echo.
 echo   Valores sugeridos:
 echo     4096   - minimo, mais rapido, so programas pequenos
@@ -28,7 +37,13 @@ echo     32768  - padrao (recomendado, programas de prova grandes)
 echo     65536  - maximo (so se tiver RAM sobrando)
 echo.
 echo   Quanto maior, mais RAM o modelo usa (~128 bytes por token).
-echo   Num PC de 16GB, 32768 e seguro (~9GB total). 65536 so com RAM sobrando.
+if %RAM_MB% LSS 12000 (
+  echo   [PC FRACO] %RAM_MB% MB detectado: use 4096-8192. 32768+ pode estourar a RAM.
+) else if %RAM_MB% LSS 20000 (
+  echo   [16GB] %RAM_MB% MB: 32768 e seguro (~9GB total). 65536 so com RAM sobrando.
+) else (
+  echo   [24GB+] %RAM_MB% MB: 65536 e confortavel. Use 32768 se quiser sobrar RAM.
+)
 echo.
 set /p NOVO="Novo valor (Enter para manter %ATUAL%): "
 
