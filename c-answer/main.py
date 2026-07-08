@@ -20,14 +20,21 @@ import pystray
 from pystray import MenuItem as item
 
 try:
-    # Força modo escuro para menus ANTES de qualquer UI (Tkinter) carregar
+    # Força modo escuro para menus ANTES de qualquer UI (Tkinter) carregar.
+    # As funções SetPreferredAppMode (ordinal 135) e FlushMenuThemes
+    # (ordinal 136) não são exportadas por nome — só por ordinal.
+    # getattr(uxtheme, str(135)) NÃO funciona; é preciso uxtheme[135].
     uxtheme = ctypes.windll.LoadLibrary("uxtheme.dll")
-    SetPreferredAppMode = getattr(uxtheme, str(135))
+    SetPreferredAppMode = uxtheme[135]
+    SetPreferredAppMode.argtypes = [ctypes.c_int]
+    SetPreferredAppMode.restype = ctypes.c_int
     SetPreferredAppMode(2)  # 2 = ForceDark
-    FlushMenuThemes = getattr(uxtheme, str(136))
+    FlushMenuThemes = uxtheme[136]
+    FlushMenuThemes.argtypes = []
+    FlushMenuThemes.restype = None
     FlushMenuThemes()
-except Exception:
-    pass
+except Exception as e:
+    logging.debug(f"Dark mode init falhou: {e}")
 
 # ─── Config ─────────────────────────────────────────────────────────────────
 
