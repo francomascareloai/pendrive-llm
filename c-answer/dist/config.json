@@ -1,0 +1,20 @@
+{
+    "api_key": "sk-oracle-vps-efe9f337f974c6b0d9baedf5d6359e8d",
+    "api_url": "http://147.15.118.177:8317/v1/chat/completions",
+    "model": "gemini-3.1-pro-high",
+    "extra_headers": {},
+    "fallback": {
+        "api_url": "https://api.neuralwatt.com/v1/chat/completions",
+        "api_key": "sk-212e66e55f187421214b742e82c6e6fb1ec8a6ef0c295f88f76678d7dc4623bd",
+        "model": "kimi-k2.7-code"
+    },
+    "capture_interval": 10,
+    "min_api_interval": 20,
+    "grace_period": 12,
+    "jpeg_quality": 85,
+    "capture_scale": 0.65,
+    "sharpen": true,
+    "max_text_chars": 200,
+    "opacity": 0.85,
+    "verbose_log": false
+}
