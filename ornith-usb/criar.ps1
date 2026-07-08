@@ -63,7 +63,7 @@ $body = @{
   stream = $false
   temperature = 0.3
   top_p = 0.95
-  max_tokens = 4096
+  max_tokens = 8192
 } | ConvertTo-Json -Depth 10 -Compress
 
 Write-Host ""
@@ -77,11 +77,20 @@ try {
 
 $conteudo = $resp.choices[0].message.content
 
-# extrai o bloco ```c ... ```
+# avisa se a resposta foi truncada por limite de tokens (programa grande/incompleto)
+$finish = $resp.choices[0].finish_reason
+if ($finish -eq "length") {
+  Write-Host "[AVISO] Resposta truncada por limite de tokens (finish_reason=length)." -ForegroundColor Yellow
+  Write-Host "        O programa pode estar incompleto. Considere aumentar o contexto (config.bat)." -ForegroundColor Yellow
+}
+
+# extrai o bloco de codigo. Regex unificada case-insensitive aceita ```c, ```C,
+# ```cpp, ```c++ etc. ([a-z0-9+#]* apos o fence). Fallback: bloco sem fechar
+# (resposta truncada por max_tokens) captura ate o final da string.
 $cb = '```'
-$match = [regex]::Match($conteudo, '(?s)' + [regex]::Escape($cb) + 'c\s*\r?\n(.*?)' + [regex]::Escape($cb))
+$match = [regex]::Match($conteudo, '(?si)' + [regex]::Escape($cb) + '[a-z0-9+#]*\s*\r?\n(.*?)' + [regex]::Escape($cb))
 if (-not $match.Success) {
-  $match = [regex]::Match($conteudo, '(?s)' + [regex]::Escape($cb) + '\s*\r?\n(.*?)' + [regex]::Escape($cb))
+  $match = [regex]::Match($conteudo, '(?si)' + [regex]::Escape($cb) + '[a-z0-9+#]*\s*\r?\n(.*)$')
 }
 if (-not $match.Success) {
   Write-Host "[AVISO] Nao achei bloco de codigo na resposta. Mostrando a resposta bruta:" -ForegroundColor Yellow

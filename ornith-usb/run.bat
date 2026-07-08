@@ -41,8 +41,8 @@ REM --- porta especifica p/ nao colidir com servicos da faculdade ---
 set "PORT=8137"
 
 REM --- tamanho da janela de contexto (tokens) ---
-REM Le de config\contexto.txt (definido por config.bat). Default: 16384.
-set "CTX=16384"
+REM Le de config\contexto.txt (definido por config.bat). Default: 32768 (igual ao config.bat e ao LEIA-ME).
+set "CTX=32768"
 if exist "config\contexto.txt" set /p CTX=<"config\contexto.txt"
 
 echo Iniciando servidor (modo terminal / VS Code)...

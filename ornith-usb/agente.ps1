@@ -145,14 +145,37 @@ function Executar-Tool($nome, $toolArgs) {
         $psi.FileName = "cmd.exe"
         $psi.Arguments = "/c " + $cmd
         $psi.UseShellExecute = $false
+        $psi.RedirectStandardInput = $true
         $psi.RedirectStandardOutput = $true
         $psi.RedirectStandardError = $true
         $psi.CreateNoWindow = $true
         $psi.WorkingDirectory = (Get-Location).Path
         $p = [System.Diagnostics.Process]::Start($psi)
-        $stdout = $p.StandardOutput.ReadToEnd()
-        $stderr = $p.StandardError.ReadToEnd()
-        $p.WaitForExit(30000) | Out-Null
+        # Fecha stdin: programas com scanf/gets recebem EOF e retornam em vez de
+        # travar aguardando teclado. Sem isto, ReadToEnd bloqueia pra sempre.
+        $p.StandardInput.Close()
+        # Le assincrono evita o deadlock de buffer de pipe (stdout/stderr cheios
+        # bloqueando o processo) e deixa o WaitForExit(30000) ser alcancado.
+        $sb = New-Object System.Text.StringBuilder
+        $errSb = New-Object System.Text.StringBuilder
+        $outh = Register-ObjectEvent -InputObject $p -EventName OutputDataReceived -MessageData $sb -Action { if ($EventArgs.Data) { [void]$MessageData.AppendLine($EventArgs.Data) } }
+        $errh = Register-ObjectEvent -InputObject $p -EventName ErrorDataReceived -MessageData $errSb -Action { if ($EventArgs.Data) { [void]$MessageData.AppendLine($EventArgs.Data) } }
+        $p.BeginOutputReadLine()
+        $p.BeginErrorReadLine()
+        $timeout = $false
+        if (-not $p.WaitForExit(30000)) {
+          $timeout = $true
+          try { $p.Kill() } catch {}
+        }
+        Unregister-Event -SourceIdentifier $outh.Name -ErrorAction SilentlyContinue
+        Unregister-Event -SourceIdentifier $errh.Name -ErrorAction SilentlyContinue
+        $outh | Remove-Job -Force -ErrorAction SilentlyContinue
+        $errh | Remove-Job -Force -ErrorAction SilentlyContinue
+        $stdout = $sb.ToString()
+        $stderr = $errSb.ToString()
+        if ($timeout) {
+          return "[ERRO] comando excedeu 30s (provavelmente interativo/travou). Processo morto."
+        }
         $saida = $stdout
         if ($stderr) { $saida += "`n" + $stderr }
         $saida += "`n[codigo de saida: $($p.ExitCode)]"

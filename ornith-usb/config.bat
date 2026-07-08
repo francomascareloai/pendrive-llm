@@ -37,7 +37,16 @@ if "%NOVO%"=="" (
   goto fim
 )
 
-REM valida se e numero: set /a converte, se virar 0 e o original nao era 0, e invalido
+REM valida se e numero decimal puro (sem leading zero, sem hex/octal).
+REM set /a interpreta 010000 como octal (vira 4096) e 0x1000 como hex (vira 4096),
+REM silenciosamente. findstr ^[1-9][0-9]*$ so aceita decimal sem ambiguidade.
+echo %NOVO%| findstr /r /c:"^[1-9][0-9]*$" >nul
+if errorlevel 1 (
+  if not "%NOVO%"=="0" (
+    echo [ERRO] Valor invalido - use so digitos decimais (sem zero a esquerda, sem 0x).
+    goto fim
+  )
+)
 set /a VAL=%NOVO% 2>nul
 if "%VAL%"=="0" if not "%NOVO%"=="0" (
   echo [ERRO] Valor invalido - use so numeros.
