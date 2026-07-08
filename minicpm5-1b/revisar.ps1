@@ -226,7 +226,7 @@ if ($sobrescrever) {
   [System.IO.File]::WriteAllText($Arquivo, $codigoCorrigido + "`n", $utf8NoBom)
   Write-Host "[OK] Salvo. Backup criado: $bak" -ForegroundColor Green
 } else {
-  $novo = [System.IO.Path]::ChangeExtension($Arquivo, ".corrigido.c")
-  [System.IO.File]::WriteAllText($novo, $codigoCorrigido + "`n", $utf8NoBom)
-  Write-Host "[OK] Salvo em: $novo" -ForegroundColor Green
+  $arquivoCorrigido = [System.IO.Path]::ChangeExtension($Arquivo, ".corrigido.c")
+  [System.IO.File]::WriteAllText($arquivoCorrigido, $codigoCorrigido + "`n", $utf8NoBom)
+  Write-Host "[OK] Salvo em: $arquivoCorrigido" -ForegroundColor Green
 }
