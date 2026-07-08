@@ -50,6 +50,27 @@ REM Le de config\contexto.txt (definido por config.bat). Default: 32768 (igual a
 set "CTX=32768"
 if exist "config\contexto.txt" set /p CTX=<"config\contexto.txt"
 
+REM --- protecao contra OOM: se o PC tem pouca RAM, reduz o contexto automaticamente ---
+REM O Ornith-9B usa ~6GB fixos + ~128 bytes por token de contexto. Em PC com
+REM pouca RAM livre, 32768 tokens podem estourar a RAM e o Windows mata o
+REM servidor sem avisar (crash silencioso no meio da geracao). Se o usuario nao
+REM definiu contexto explicitamente (arquivo ausente), detecta RAM e ajusta.
+set "RAM_MB=16384"
+for /f "delims=" %%R in ('powershell -NoProfile -Command "[math]::Floor((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory/1MB)" 2^>nul') do set "RAM_MB=%%R"
+if "%RAM_MB%"=="" set "RAM_MB=16384"
+if not exist "config\contexto.txt" (
+  if %RAM_MB% LSS 12000 (
+    set "CTX=4096"
+    echo [AVISO] PC com %RAM_MB% MB de RAM: usando contexto 4096 (seguro).
+    echo         Para mais contexto, feche outros programas e rode config.bat.
+  ) else if %RAM_MB% LSS 20000 (
+    set "CTX=16384"
+    echo [INFO] PC com %RAM_MB% MB de RAM: usando contexto 16384.
+  ) else (
+    set "CTX=32768"
+  )
+)
+
 echo Iniciando servidor (modo terminal / VS Code)...
 echo Modelo:    %MODEL%
 echo Porta:     %PORT%

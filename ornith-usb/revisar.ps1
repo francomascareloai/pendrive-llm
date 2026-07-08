@@ -90,12 +90,32 @@ try {
 }
 
 Write-Host "Enviando para revisao..." -ForegroundColor Cyan
-try {
-  $resp = Invoke-RestMethod -Uri $Url -Method Post -ContentType "application/json; charset=utf-8" -Body $body -TimeoutSec 300
-} catch {
-  Write-Host "[ERRO] Falha ao chamar o modelo: $($_.Exception.Message)" -ForegroundColor Red
-  exit 1
+# retry com backoff: o servidor pode cair no meio de uma geracao longa (OOM em
+# PC com pouca RAM). Tenta ate 3x com pausa crescente, avisando o usuario.
+$resp = $null
+for ($tent = 1; $tent -le 3; $tent++) {
+  try {
+    $resp = Invoke-RestMethod -Uri $Url -Method Post -ContentType "application/json; charset=utf-8" -Body $body -TimeoutSec 600
+    break
+  } catch {
+    if ($tent -lt 3) {
+      $espera = $tent * 5
+      Write-Host "[AVISO] Servidor nao respondeu (tentativa $tent/3). Aguardando ${espera}s..." -ForegroundColor Yellow
+      Start-Sleep -Seconds $espera
+      try { Invoke-RestMethod -Uri "http://127.0.0.1:$Porta/health" -TimeoutSec 3 | Out-Null }
+      catch {
+        Write-Host "[ERRO] O servidor caiu (provavelmente RAM insuficiente)." -ForegroundColor Red
+        Write-Host "       Feche o run.bat, feche outros programas pesados, e suba o servidor de novo." -ForegroundColor Yellow
+        exit 1
+      }
+    } else {
+      Write-Host "[ERRO] Falha ao chamar o modelo apos 3 tentativas: $($_.Exception.Message)" -ForegroundColor Red
+      Write-Host "       Se o servidor caiu, reinicie o run.bat (feche outros programas pesados)." -ForegroundColor Yellow
+      exit 1
+    }
+  }
 }
+if (-not $resp) { exit 1 }
 
 $conteudo = $resp.choices[0].message.content
 
