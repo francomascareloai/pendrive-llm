@@ -1,0 +1,32 @@
+# ── Modelos GGUF (pesados — baixar à parte, não versionar) ──
+model/
+
+# ── Motor llama.cpp (binários de terceiro — release oficial do llama.cpp) ──
+llama/
+
+# ── Agentes de terceiro (binários) ──
+crush/crush.exe
+omp/omp.exe
+
+# ── Runtime dos agentes (DBs, logs, sessões, config portátil gerado) ──
+crush/data/
+crush/config-xdg/
+
+# ── Arquivo de teste solto na raiz (não faz parte da distribuição) ──
+aaaaaa.c
+
+# ── Backups e artefatos de build ──
+*.bak
+*.exe
+*.db
+*.db-shm
+*.db-wal
+*.log
+
+# ── OS / editor ──
+Thumbs.db
+desktop.ini
+ehthumbs.db
+.DS_Store
+.vscode/
+.idea/

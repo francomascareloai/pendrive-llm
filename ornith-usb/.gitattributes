@@ -1,0 +1,9 @@
+# Normaliza quebras de linha: LF no repo, CRLF no checkout Windows.
+# .bat/.ps1/.txt/.yml/.md/.c/.h/.json — todos text, todos CRLF no Windows.
+* text=auto eol=crlf
+
+# Binários (se algum dia entrar) — nunca normalizar.
+*.exe binary
+*.dll binary
+*.gguf binary
+*.db binary

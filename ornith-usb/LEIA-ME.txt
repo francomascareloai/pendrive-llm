@@ -1,0 +1,183 @@
+# Ornith-1.0-9B — Pendrive Portátil
+
+LLM para programar em C, roda em qualquer PC Windows (16GB RAM) sem instalar nada.
+
+## Passo a passo (o básico)
+
+1. **Conecte o pendrive** no PC (vira `G:`).
+2. **Suba o servidor** (uma vez, deixe a janela aberta):
+   - Duplo-clique em `G:\ornith-usb\menu.bat` → opção **1**, OU
+   - Duplo-clique em `G:\ornith-usb\run.bat`.
+   - Aparece "listening on http://127.0.0.1:8137". **Deixe essa janela aberta.**
+3. **Use os scripts** no terminal (Explorador, cmd, PowerShell ou VS Code).
+   - Chame sempre por **caminho completo** começando com a letra do pendrive:
+     `G:\ornith-usb\criar.bat ...` (na faculdade) ou `E:\LLM\ornith-usb\criar.bat ...` (no SSD de casa).
+
+## Usando no VS Code (recomendado)
+
+1. Abra o VS Code na **pasta do seu projeto** (onde estão seus `.c`).
+2. Abra o terminal integrado: menu **Terminal → New Terminal** (ou `Ctrl+'`).
+   - Ele já abre na pasta do projeto.
+3. Suba o servidor numa janela separada (duplo-clique em `run.bat`) — **deixe aberta**.
+4. No terminal do VS Code, chame os scripts por caminho completo:
+
+```
+G:\ornith-usb\criar.bat programa.c "lista ligada com 3 nos"
+G:\ornith-usb\revisar.bat programa.c
+G:\ornith-usb\chat.bat
+G:\ornith-usb\agente.bat
+```
+
+**Detalhe do `agente.bat`:** ele opera na pasta onde você está. Então **faça `cd` pra pasta do seu `.c` antes**:
+```
+cd G:\Consulta_Prova_C
+G:\ornith-usb\agente.bat corrija o programa.c e compile
+```
+Os outros (`criar`, `revisar`, `chat`) não precisam disso — você passa o caminho do arquivo como argumento.
+
+## Como usar (mais fácil)
+
+Dê duplo-clique em **`menu.bat`** — abre um menu com todas as opções.
+Ou use os `.bat` individuais abaixo.
+
+### 1. Suba o servidor — `run.bat`
+Dê duplo-clique em **`run.bat`** (ou rode `run.bat` no terminal). Ele sobe o modelo na memória.
+- Aparece "listening on http://127.0.0.1:8137".
+- **Deixe essa janela/aba aberta** enquanto usar o modelo.
+- Fecha a janela = para o servidor.
+
+### 2. Crie um programa do zero — `criar.bat`
+Descreva o programa e ele gera + salva num `.c`:
+```
+criar.bat programa.c "lista ligada com 3 nos de valores 10 20 30"
+```
+Ou só `criar.bat` (pergunta a descrição e o nome).
+- Gera o código, salva no arquivo e **tenta compilar** pra avisar se tem erro.
+- Se gerar com erro, rode `revisar.bat programa.c` pra corrigir.
+
+### 3. Revise/corrija um arquivo C — `revisar.bat`
+- **Arraste** seu arquivo `.c` (ou `.h`) em cima de **`revisar.bat`**, OU
+- No terminal: `revisar.bat programa.c`
+
+Ele faz:
+1. Tenta compilar seu código com o `gcc` (se o gcc existir no PC).
+2. Se tiver erro de compilação, manda o código + o erro do gcc pro modelo.
+3. O modelo devolve o código corrigido.
+4. Pergunta: `Salvar por cima do arquivo original? (s/N)`
+   - `s` = sobrescreve o original (cria backup `.bak` automático)
+   - `N` (ou Enter) = salva como `programa.corrigido.c`
+
+**Salvar direto (sem perguntar):** `revisar.bat programa.c -y`
+(sobrescreve o original e cria `.bak`)
+
+### 4. Chat interativo — `chat.bat`
+Chat simples no terminal: digita, enter, ele responde. Pra sair digite `sair`.
+Raciocínio adaptativo: responde direto em conversa simples, pensa mais em código.
+
+### 5. Agente (corrige sozinho) — `agente.bat`
+Agente que **lê, edita, compila e roda arquivos sozinho** (tool calling).
+Ex.: peça "corrija o soma.c, compile e rode" que ele faz tudo sozinho.
+- Modo interativo: `agente.bat` (depois digite tarefas, `sair` pra encerrar).
+- Modo tarefa única: `agente.bat corrija o soma.c e compile` (faz e sai).
+- Mais lento que o chat (vários turnos de raciocínio + tool calls), mas resolve a tarefa inteira.
+
+### 6. Ajustar a janela de contexto — `config.bat` (opcional)
+Rode `config.bat` e digite o tamanho em tokens:
+- `4096` — mínimo, mais rápido, programas pequenos
+- `8192` — bom pra maioria dos exercícios
+- `16384` — programas médios
+- `32768` — **padrão** (recomendado, programas de prova grandes)
+- `65536` — máximo (só se tiver RAM sobrando)
+
+Salva em `config\contexto.txt`. **Reinicie o `run.bat`** pra aplicar (feche e abra).
+Quanto maior o contexto, mais RAM o modelo usa (~128 bytes por token).
+Num PC de 16GB, 32768 é seguro (~7GB total). 65536 só com RAM sobrando.
+
+## Requisitos na faculdade
+- Windows 10/11 com 16GB RAM (testado)
+- `gcc` instalado (para detectar erros de compilação automaticamente).
+  - Se **não** tiver gcc, o `revisar.bat`/`criar.bat` ainda funcionam — só não detectam o erro do compilador.
+- **Não precisa** de Node.js, Python, jq, nem internet. Tudo no pendrive.
+
+## Sobre o modelo (Ornith-1.0-9B)
+- 9B parâmetros, família Qwen 3.5, otimizado para código.
+- **Modelo de raciocínio**: ele "pensa" antes de responder (separado no campo de raciocínio, não suja a resposta). Ajuda a não alucinar em código, mas deixa o chat simples mais lento (~4 tokens/seg em CPU).
+- **Suporta tool calling**: os agentes (crush/omp) conseguem ler, editar e compilar arquivos automaticamente.
+- Quantização Q5_K_M (~6GB), bom equilíbrio entre qualidade e tamanho.
+
+## O que o modelo faz bem (testado)
+- Gera programas em C: hello world, structs, matrizes, ponteiros, recursão (fatorial), loops, listas ligadas, swap por ponteiro, fibonacci, inverter array, contar vogais, soma via scanf, bubble sort.
+- Corrige erros de compilação: falta de `;`, `#include` faltando, variável não declarada, `scanf` sem `&`, chaves desbalanceadas, `main` sem tipo de retorno.
+- Corrige bugs de lógica: off-by-one em loop, maior elemento com negativos, divisão inteira.
+- Responde e explica em **português** (com acentos).
+
+## Arquivos do pendrive
+| Arquivo | O que faz |
+|---|---|
+| `menu.bat` | **Menu principal** com todas as opções. |
+| `run.bat` | **Sobe o servidor** (deixe aberto). Porta 8137. |
+| `criar.bat` | **Gera um programa C do zero** a partir de uma descrição. |
+| `revisar.bat` | **Corrige/revisa um `.c`** existente. |
+| `chat.bat` | **Chat interativo** simples no terminal. |
+| `agente.bat` | **Agente** — lê/edita/compila/roda sozinho (recomendado). |
+| `config.bat` | **Ajusta a janela de contexto** (tokens). Reinicie o run.bat após. |
+| `criar.ps1` / `revisar.ps1` / `chat.ps1` / `agente.ps1` | Scripts (chamados pelos .bat, não rode direto). |
+| `limpar.bat` | Limpa sessões/cache e rastro legacy do omp. |
+| `crush.bat` | Agente alternativo (TUI, pode ter timeout com CPU lenta). |
+| `omp.bat` | Agente alternativo (mais pesado). |
+
+## Pastas
+- `model/` — o modelo GGUF (Ornith-1.0-9B-Q5_K_M, ~6GB)
+- `llama/` — o motor llama.cpp (binários, não precisa instalar)
+- `crush/`, `omp/`, `config/` — agentes e configuração
+
+## Sobre os agentes (agente/crush/omp/chat)
+- `agente.bat` — **Agente recomendado.** Loop de tool calling direto na API, sem timeout agressivo (suporta CPU lenta). Lê, edita, compila e roda arquivos sozinho. Tudo portátil (nada no PC).
+- `crush.bat` — Agente TUI (Charm). Suporta tool calling, mas em CPU lenta pode desistir antes de completar (feito pra modelos cloud rápidos). Config portátil via `XDG_CONFIG_HOME` no pendrive.
+- `omp.bat` — Oh My Pi (agente alternativo, mais pesado). Config e sessões portáteis no pendrive.
+- `chat.bat` — Chat simples (só conversa, não edita arquivos).
+
+## Não deixar rastro no PC
+**Todos** os scripts gravam config e sessões **dentro do pendrive** — nada em `%USERPROFILE%`.
+O `limpar.bat` apaga sessões antigas (no pendrive) e qualquer pasta `.omp` legacy de versões antigas do projeto.
+
+## Porta
+8137 (escolhida para não colidir com serviços da faculdade). Tudo em `127.0.0.1` (só acessível localmente).
+
+## Velocidade
+Em CPU, o modelo gera ~4 tokens/segundo. Um programa pequeno leva ~30s, um programa grande (400 linhas) pode levar 6-8 minutos. O raciocínio (think) deixa o chat simples mais lento mas melhora a qualidade do código.
+
+## Exemplos rápidos (copie e cole)
+
+```cmd
+:: 1. subir servidor (deixe a janela aberta)
+G:\ornith-usb\run.bat
+
+:: 2. criar um programa do zero
+G:\ornith-usb\criar.bat fatorial.c "fatorial recursivo de um numero digitado"
+
+:: 3. revisar/corrigir um arquivo que nao compila
+G:\ornith-usb\revisar.bat fatorial.c
+
+:: 4. chat (perguntar/explorar sem editar arquivos)
+G:\ornith-usb\chat.bat
+
+:: 5. agente (pede pra ele fazer tudo sozinho: ler, corrigir, compilar, rodar)
+cd G:\minha_pasta
+G:\ornith-usb\agente.bat corrija o fatorial.c, compile e rode
+```
+
+## Solução de problemas
+
+- **"connection refused" / "No connection could be made" (porta 8137):**
+  o servidor não está rodando. Suba com `run.bat` (ou menu → opção 1) e deixe a janela aberta.
+- **"Loading model" (503):** o servidor subiu mas ainda está carregando o modelo (~30-60s). Espere e tente de novo.
+- **Resposta demora muito:** é normal em CPU (~4 tok/s). Programa grande = vários minutos. Não cancele.
+- **Acentos aparecem estranhos no terminal:** rode `chcp 65001` antes (UTF-8). Os `.bat` já fazem isso.
+- **`gcc` não encontrado:** os scripts funcionam sem gcc, só não detectam erros de compilação automaticamente. Instale MinGW/MSYS2 se quiser essa função.
+- **Agente não acha o arquivo:** você precisa estar na pasta do arquivo. Faça `cd` pra lá antes de chamar `agente.bat`.
+- **Servidor travou (slot ocupado, não responde):** feche a janela do `run.bat`, mate o `llama-server` (Gerenciador de Tarefas) e suba de novo.
+- **Pasta `teste-agente` no pendrive não deleta:** é um bug do exFAT (handle órfão). Ejete e reconecte o pendrive que libera. Não afeta o uso.
+
+## Letra do pendrive
+O pendrive costuma virar `G:`, mas pode virar outra letra dependendo do PC. Confira no "Este Computador" qual letra ele pegou e ajuste os comandos (troque `G:` pela letra certa).

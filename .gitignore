@@ -1,0 +1,75 @@
+# ═══════════════════════════════════════════════════════
+# pendrive-llm — .gitignore global (monorepo)
+# Cobertura: ornith-usb, minicpm5-1b, c-answer, Consulta_Prova_C, projeto_teste
+# ═══════════════════════════════════════════════════════
+
+# ── Modelos GGUF (pesados — baixar à parte, NUNCA versionar) ──
+*.gguf
+model/
+
+# ── Motor llama.cpp (binários de terceiro — release oficial) ──
+llama/
+
+# ── Agentes de terceiro (binários) ──
+crush/crush.exe
+omp/omp.exe
+
+# ── Runtime dos agentes (DBs, logs, sessões, config portátil gerado) ──
+crush/data/
+crush/config-xdg/
+
+# ── Python (c-answer) ──
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# ── Artefatos de build (c-answer) ──
+build/
+dist/
+
+# ── Binários (qualquer .exe/.dll no repo) ──
+*.exe
+*.dll
+*.obj
+*.o
+
+# ── Runtime / logs / dbs / backups ──
+*.log
+*.bak
+*.db
+*.db-shm
+*.db-wal
+out.txt
+
+# ── Config runtime do crush solto na raiz ──
+# (NÃO ignora ornith-usb/config/ nem minicpm5-1b/config/ — esses são fonte)
+/config/crush.json
+
+# ── Lixo de teste / acidentes (saídas redirecionadas, testes temporários) ──
+aaaaaa.c
+ornith-usb/injection
+ornith-usb/_test_*.bat
+minicpm5-1b/8
+/VAL
+/syntax
+/c-answer.spec
+c-answer/response.json
+Consulta_Prova_C/exemplos/example.txt
+
+# ── Testes temporários do config.bat na raiz (test_flow, test_octal, _regex_test) ──
+/test_*.bat
+/test_*.ps1
+/_*.bat
+/_*.ps1
+
+# ── OS / editor ──
+Thumbs.db
+desktop.ini
+ehthumbs.db
+.DS_Store
+.vscode/
+.idea/
+*.swp

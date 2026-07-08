@@ -1,0 +1,107 @@
+============================================================
+  MiniCPM5-1B + Ornith 9B  -  setup portatil (CPU, sem GPU)
+============================================================
+
+Pasta autocontida: roda em qualquer PC Windows 10/11 x64 sem instalar
+nada. As DLLs do Visual C++ runtime ja vem na pasta llama\ como garantia.
+Nao escreve em C:\Users - tudo fica aqui dentro (como pendrive isolado).
+
+------------------------------------------------------------
+REQUISITOS
+------------------------------------------------------------
+- Windows 10/11 x64
+- ~3 GB RAM livres (MiniCPM5-1B) ou ~8 GB (Ornith 9B)
+- Nao precisa de GPU, Python, nem instalar o crush/llama.cpp
+
+------------------------------------------------------------
+O QUE TEM AQUI
+------------------------------------------------------------
+  llama\          llama-server.exe + DLLs de CPU (binario oficial llama.cpp)
+                  + DLLs do VC++ runtime (VCRUNTIME140, MSVCP140, etc.)
+  model\          MiniCPM5-1B-Q4_K_M.gguf (default, 688 MB)
+                  MiniCPM5-1B-Q8_0.gguf   (1.15 GB, mais qualidade)
+  crush\          crush.exe + config portatil (config-xdg, data)
+  run-minicpm.bat sobe o servidor do MiniCPM5-1B (porta 8138)
+  crush.bat       abre o crush apontando pros modelos locais
+  menu.bat        MENU CENTRAL - subir, criar, revisar, chat, agente, config, limpar
+  criar.bat       descreve um programa e ele gera + salva num .c (temp 0.3)
+  revisar.bat     arrasta um .c e ele revisa/corrige (temp 0.3)
+  chat.bat        chat direto com o MiniCPM5 (sem agente, temp 0.3)
+  agente.bat      agente autonomo (loop de tool calling: ler/editar/compilar/rodar .c)
+  config.bat      ajusta contexto, threads e quantizacao (Q4/Q8)
+  limpar.bat      limpa sessoes/db do crush (mantem config)
+
+  NOTA: o Ornith 9B (6.4 GB) fica na pasta irma ornith-usb\.
+        O crush.json daqui referencia os DOIS modelos. Para usar o
+        Ornith, suba o servidor em ornith-usb\run.bat (porta 8137).
+
+------------------------------------------------------------
+COMO USAR
+------------------------------------------------------------
+Ponto de entrada recomendado: duplo-clique em menu.bat (acessa tudo num
+so lugar). Ou use os scripts individuais:
+
+1. Suba o servidor do modelo que quer usar:
+     - MiniCPM5-1B (leve, rapido, DEFAULT):  duplo-clique em run-minicpm.bat
+     - Ornith 9B (SOTA em codigo):           va em ..\ornith-usb\run.bat
+   Deixe a janela do servidor ABERTA enquanto usa o crush.
+
+2. Abra o crush:  duplo-clique em crush.bat
+   - Modo interativo (chat): so abrir.
+   - Modo nao-interativo (uma tarefa so):
+       crush.bat run "sua tarefa aqui"
+
+3. Escolher o modelo (modo run):
+     - MiniCPM5-1B (default):  crush.bat run "crie um programa..."
+     - Ornith 9B:              crush.bat run -m local-llama/ornith "crie..."
+
+------------------------------------------------------------
+MODELOS
+------------------------------------------------------------
+  minicpm5-1b   MiniCPM5-1B Q4_K_M (default)  porta 8138   leve, rapido em CPU fraca
+  ornith        Ornith 1.0 9B Q5_K_M          porta 8137   SOTA em codigo, porem lento
+
+Default do crush = MiniCPM5-1B (models.large). O Ornith e o "small"
+(models.small). Use -m para forcar um especifico.
+Q4_K_M = rapido (default); Q8_0 = mais qualidade. Troque com config.bat.
+
+------------------------------------------------------------
+LIMITACOES DO MINICPM5-1B (modelo 1B) - LEIA ANTES DE USAR
+------------------------------------------------------------
+- Modelo de 1B parametro: acerta programas simples, mas ERRA em logica
+  complexa, algoritmos elaborados e depuracao dificil. Sempre compile e
+  teste o que ele gerar (o criar.bat ja compila e avisa erros).
+- Agente autonomo (agente.bat) e fraco: o 1B se perde em loops de
+  tool-calling longos. Para correcao multi-etapa confiavel, use o Ornith 9B.
+- Para PROVA SERIA ou codigo de producao, prefira Ornith 9B (..\ornith-usb).
+  O MiniCPM5-1B e para iteracao rapida e tarefas simples em CPU fraca.
+
+------------------------------------------------------------
+TOOLS (o crush faz tool calling sozinho)
+------------------------------------------------------------
+O crush tem auto-aprovadas:  view  ls  grep  edit  write  bash
+Ele pode ler/editar arquivos e rodar comandos sozinho.
+No modo interativo, --yolo auto-aceita todas as permissoes.
+
+------------------------------------------------------------
+TROUBLESHOOTING
+------------------------------------------------------------
+- "connection refused"     -> esqueceu de abrir run-minicpm.bat (ou run.bat)
+                              Use menu.bat opcao 7 para ver o status do servidor.
+- "exceeds context size"   -> use config.bat para reduzir o contexto
+                              (ou edite config\contexto.txt). Default 8192.
+- servidor lento           -> use config.bat: reduza threads para o n. de
+                              CORES FISICOS (16 logicos = thrashing; 8 = ideal)
+                              e/ou troque para Q4_K_M (mais rapido).
+- quer mais qualidade       -> config.bat e escolha Q8_0 (mais lento, mais preciso)
+- servidor crasha em       -> NAO use '--reasoning off' no run-minicpm.bat; ele
+  geracoes longas             crasha neste build. O servidor ja usa a solucao
+                              estavel (LLAMA_ARG_CHAT_TEMPLATE_KWARGS com
+                              enable_thinking=false via env var). Se editou o
+                              .bat e removeu essa env var, restaure-a.
+- sessao do crush corrompida-> rode limpar.bat (apaga o banco de sessoes, mantem config)
+- acentos quebrados        -> o .bat ja faz chcp 65001 (UTF-8); use terminal moderno
+- "VCRUNTIME140.dll nao    -> as DLLs do VC++ runtime ja vem em llama\. Se ainda
+  encontrada"                assim falhar, baixe o vc_redist.x64.exe em
+                              https://aka.ms/vs/17/release/vc_redist.x64.exe e instale.
+============================================================

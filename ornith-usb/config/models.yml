@@ -1,0 +1,7 @@
+providers:
+  local-llama:
+    baseUrl: http://localhost:8137/v1
+    auth: none
+    models:
+      - id: ornith
+        api: openai-completions
