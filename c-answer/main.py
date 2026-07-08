@@ -23,7 +23,7 @@ try:
     # Força modo escuro para menus ANTES de qualquer UI (Tkinter) carregar
     uxtheme = ctypes.windll.LoadLibrary("uxtheme.dll")
     SetPreferredAppMode = getattr(uxtheme, str(135))
-    SetPreferredAppMode(2) # 2 = ForceDark
+    SetPreferredAppMode(2)  # 2 = ForceDark
     FlushMenuThemes = getattr(uxtheme, str(136))
     FlushMenuThemes()
 except Exception:
@@ -31,65 +31,72 @@ except Exception:
 
 # ─── Config ─────────────────────────────────────────────────────────────────
 
-if getattr(sys, 'frozen', False):
+if getattr(sys, "frozen", False):
     BASE_DIR = os.path.dirname(sys.executable)
 else:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-CONFIG_FILE = os.path.join(BASE_DIR, 'config.json')
+CONFIG_FILE = os.path.join(BASE_DIR, "config.json")
+
 
 def load_config():
     try:
-        with open(CONFIG_FILE, 'r') as f:
+        with open(CONFIG_FILE, "r") as f:
             return json.load(f)
     except FileNotFoundError:
         return None
     except json.JSONDecodeError as e:
-        ctypes.windll.user32.MessageBoxW(0, f"Erro de sintaxe no config.json:\n{e}", "c-answer - Erro", 0x10)
+        ctypes.windll.user32.MessageBoxW(
+            0, f"Erro de sintaxe no config.json:\n{e}", "c-answer - Erro", 0x10
+        )
         sys.exit(1)
     except Exception as e:
-        ctypes.windll.user32.MessageBoxW(0, f"Erro ao ler config.json:\n{e}", "c-answer - Erro", 0x10)
+        ctypes.windll.user32.MessageBoxW(
+            0, f"Erro ao ler config.json:\n{e}", "c-answer - Erro", 0x10
+        )
         sys.exit(1)
+
 
 config = load_config()
 if config is None:
     ctypes.windll.user32.MessageBoxW(
         0,
         "config.json não encontrado.\nCopie o arquivo para o mesmo diretório do executável.",
-        "c-answer", 0x10
+        "c-answer",
+        0x10,
     )
     sys.exit(1)
-API_KEY = config.get('api_key', '')
-API_URL = config.get('api_url', 'https://openrouter.ai/api/v1/chat/completions')
-MODEL = config.get('model', 'google/gemini-2.5-flash-001')
-FALLBACK_MODEL = config.get('fallback_model', 'openai/gpt-4o-mini')
-EXTRA_HEADERS = config.get('extra_headers', {})
-CAPTURE_INTERVAL = config.get('capture_interval', 10)
-MIN_API_INTERVAL = config.get('min_api_interval', 20)
-GRACE_PERIOD = config.get('grace_period', 12)
-JPEG_QUALITY = config.get('jpeg_quality', 85)
-CAPTURE_SCALE = config.get('capture_scale', 0.65)
-SHARPEN = config.get('sharpen', True)
-MAX_TEXT_CHARS = config.get('max_text_chars', 200)
-OPACITY = config.get('opacity', 0.85)
-VERBOSE_LOG = config.get('verbose_log', False)
+API_KEY = config.get("api_key", "")
+API_URL = config.get("api_url", "https://openrouter.ai/api/v1/chat/completions")
+MODEL = config.get("model", "google/gemini-2.5-flash-001")
+FALLBACK_MODEL = config.get("fallback_model", "openai/gpt-4o-mini")
+EXTRA_HEADERS = config.get("extra_headers", {})
+CAPTURE_INTERVAL = config.get("capture_interval", 10)
+MIN_API_INTERVAL = config.get("min_api_interval", 20)
+GRACE_PERIOD = config.get("grace_period", 12)
+JPEG_QUALITY = config.get("jpeg_quality", 85)
+CAPTURE_SCALE = config.get("capture_scale", 0.65)
+SHARPEN = config.get("sharpen", True)
+MAX_TEXT_CHARS = config.get("max_text_chars", 200)
+OPACITY = config.get("opacity", 0.85)
+VERBOSE_LOG = config.get("verbose_log", False)
 
-LOG_FILE = os.path.join(BASE_DIR, 'c-answer.log')
+LOG_FILE = os.path.join(BASE_DIR, "c-answer.log")
 try:
     logging.basicConfig(
         level=logging.DEBUG if VERBOSE_LOG else logging.INFO,
-        format='%(asctime)s [%(levelname)s] %(message)s',
+        format="%(asctime)s [%(levelname)s] %(message)s",
         handlers=[logging.FileHandler(LOG_FILE)],
     )
 except (OSError, PermissionError):
     logging.basicConfig(
         level=logging.DEBUG if VERBOSE_LOG else logging.INFO,
-        format='%(asctime)s [%(levelname)s] %(message)s',
+        format="%(asctime)s [%(levelname)s] %(message)s",
         stream=sys.stdout,
     )
-logging.getLogger('urllib3').setLevel(logging.WARNING)
-logging.getLogger('PIL').setLevel(logging.WARNING)
-logging.getLogger('mss').setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("PIL").setLevel(logging.WARNING)
+logging.getLogger("mss").setLevel(logging.WARNING)
 
 # ─── Queues & State ─────────────────────────────────────────────────────────
 
@@ -100,7 +107,7 @@ _last_api_call = 0
 stop = threading.Event()
 _lock = threading.Lock()
 
-_pending_change = False   # screen changed, waiting grace period
+_pending_change = False  # screen changed, waiting grace period
 _pending_change_time = 0
 
 # ─── Prompts ─────────────────────────────────────────────────────────────────
@@ -139,53 +146,65 @@ MULTI_PROMPT = (
 
 _monitor_phys = None
 
+
 def get_monitor_phys():
     global _monitor_phys
     if _monitor_phys is None:
         with mss.MSS() as sct:
             m = sct.monitors[1]
-            _monitor_phys = (m['width'], m['height'])
+            _monitor_phys = (m["width"], m["height"])
     return _monitor_phys
+
 
 def capture_full():
     with mss.MSS() as sct:
         m = sct.monitors[1]
         raw = sct.grab(m)
-        return Image.frombytes('RGB', (raw.width, raw.height), raw.rgb)
+        return Image.frombytes("RGB", (raw.width, raw.height), raw.rgb)
+
 
 def capture_region(bbox):
     x1, y1, x2, y2 = bbox
     with mss.MSS() as sct:
         r = {"left": x1, "top": y1, "width": x2 - x1, "height": y2 - y1}
         raw = sct.grab(r)
-        return Image.frombytes('RGB', (raw.width, raw.height), raw.rgb)
+        return Image.frombytes("RGB", (raw.width, raw.height), raw.rgb)
+
+
+try:
+    _RESAMPLE = Image.Resampling.LANCZOS
+except AttributeError:
+    _RESAMPLE = Image.LANCZOS
+
 
 def process_image(img):
     w, h = img.size
     if CAPTURE_SCALE < 1.0:
-        img = img.resize((int(w * CAPTURE_SCALE), int(h * CAPTURE_SCALE)), Image.LANCZOS)
+        img = img.resize((int(w * CAPTURE_SCALE), int(h * CAPTURE_SCALE)), _RESAMPLE)
     if SHARPEN:
         img = img.filter(ImageFilter.SHARPEN)
         img = ImageEnhance.Contrast(img).enhance(1.12)
     return img
 
+
 def img_to_b64(img):
     buf = BytesIO()
-    img.save(buf, format='JPEG', quality=JPEG_QUALITY)
+    img.save(buf, format="JPEG", quality=JPEG_QUALITY)
     return base64.b64encode(buf.getvalue()).decode()
+
 
 # ─── LLM ─────────────────────────────────────────────────────────────────────
 
+
 def ask_llm(images_b64, prompt, retry=2, model_override=None):
-    if (not API_KEY) or (API_KEY.startswith('sk-') and len(API_KEY) < 20):
+    if (not API_KEY) or (API_KEY.startswith("sk-") and len(API_KEY) < 20):
         return "KEY?"
 
     content = [{"type": "text", "text": prompt}]
     for b64 in images_b64:
-        content.append({
-            "type": "image_url",
-            "image_url": {"url": f"data:image/jpeg;base64,{b64}"}
-        })
+        content.append(
+            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}}
+        )
 
     headers = {
         "Authorization": f"Bearer {API_KEY}",
@@ -206,13 +225,18 @@ def ask_llm(images_b64, prompt, retry=2, model_override=None):
             resp = requests.post(API_URL, headers=headers, json=payload, timeout=60)
             resp.raise_for_status()
             data = resp.json()
-            msg = data['choices'][0]['message']
-            txt = (msg.get('content') or msg.get('reasoning') or msg.get('reasoning_content') or '').strip()
+            msg = data["choices"][0]["message"]
+            txt = (
+                msg.get("content")
+                or msg.get("reasoning")
+                or msg.get("reasoning_content")
+                or ""
+            ).strip()
             logging.debug(f"LLM raw: {txt!r}")
             return txt
         except requests.exceptions.HTTPError as e:
             code = e.response.status_code
-            logging.warning(f"LLM HTTP {code} (attempt {attempt+1})")
+            logging.warning(f"LLM HTTP {code} (attempt {attempt + 1})")
             if code == 401:
                 return "KEY?"
             if code not in (429, 500, 502, 503, 504):
@@ -223,58 +247,70 @@ def ask_llm(images_b64, prompt, retry=2, model_override=None):
                 time.sleep(delay)
                 continue
         except Exception as e:
-            logging.error(f"LLM Network Error (attempt {attempt+1}): {e}")
+            logging.error(f"LLM Network Error (attempt {attempt + 1}): {e}")
             if attempt < retry:
                 out_q.put(("status", f"Rede falhou... retentando"))
                 time.sleep(2)
                 continue
     return "Erro de Conexao/API"
 
+
 # ─── Answer Parser ──────────────────────────────────────────────────────────
+
 
 def parse_answer(raw):
     if not raw:
-        return ('none', '')
+        return ("none", "")
     # Strip the "N: " counter prefix prepended in process_llm_bg so the
     # sentinel checks below (KEY?, ?, Erro) still match.
-    raw = re.sub(r'^\d+:\s*', '', raw, count=1)
-    if raw == 'KEY?':
-        return ('key', '')
-    if 'Erro ' in raw:
-        return ('text', raw[:40])
+    raw = re.sub(r"^\d+:\s*", "", raw, count=1)
+    if raw == "KEY?":
+        return ("key", "")
+    if "Erro " in raw:
+        return ("text", raw[:40])
 
-    # Strip thinking block to search only the actual answer
+    # Strip thinking block to search only the actual answer.
+    # Models that emit <think>...</think> put the real answer after the
+    # closing tag. Only use the after-tag content when non-empty,
+    # otherwise search the full response so answers aren't lost.
     clean = raw
-    pos = clean.rfind('</think>')
+    pos = raw.rfind("</think>")
     if pos >= 0:
-        clean = clean[pos + len('</think>'):].strip()
+        after = raw[pos + len("</think>") :].strip()
+        if after:
+            clean = after
 
     # Flexible: find LAST L: or T: in clean response
-    matches = list(re.finditer(r'L:(?:Q(\d+):)?([A-Za-z0-9])', clean))
+    matches = list(re.finditer(r"L:(?:Q(\d+):)?([A-Za-z0-9])", clean))
     if matches:
         m = matches[-1]
         qnum, letter = m.group(1), m.group(2).upper()
-        return ('mcq', f'Q{qnum}:{letter}' if qnum else letter)
+        return ("mcq", f"Q{qnum}:{letter}" if qnum else letter)
 
-    matches = list(re.finditer(r'T:([^\n]*)', clean))
+    matches = list(re.finditer(r"T:([^\n]*)", clean))
     if matches:
         m = matches[-1]
         text = m.group(1).strip()[:MAX_TEXT_CHARS]
-        return ('text', text + ('…' if len(m.group(1).strip()) > MAX_TEXT_CHARS else ''))
+        return (
+            "text",
+            text + ("…" if len(m.group(1).strip()) > MAX_TEXT_CHARS else ""),
+        )
 
-    if clean.strip() in ('?', '?.'):
-        return ('none', '')
+    if clean.strip() in ("?", "?."):
+        return ("none", "")
 
     # Fallback: just use first 8 chars if nothing structured found
-    short = raw[:8].replace('\n', ' ')
+    short = raw[:8].replace("\n", " ")
     logging.warning(f"Unstructured response: {raw!r}")
-    return ('text', short + ('…' if len(raw) > 8 else ''))
+    return ("text", short + ("…" if len(raw) > 8 else ""))
+
 
 # ─── Capture Thread ─────────────────────────────────────────────────────────
 
 _ans_counter = 0
 _current_req_id = 0
 _req_lock = threading.Lock()
+
 
 def process_llm_bg(req_id, images_b64, prompt, is_multi=False):
     global _ans_counter
@@ -299,8 +335,15 @@ def process_llm_bg(req_id, images_b64, prompt, is_multi=False):
             logging.info(f"[multi bg] {ans}")
             out_q.put(("answer", ans))
 
+
 def capture_loop():
-    global _last_hash, _last_api_call, _pending_change, _pending_change_time, _ans_counter, _current_req_id
+    global \
+        _last_hash, \
+        _last_api_call, \
+        _pending_change, \
+        _pending_change_time, \
+        _ans_counter, \
+        _current_req_id
     multi_batch = []
     multi_mode = False
 
@@ -308,28 +351,36 @@ def capture_loop():
         # ── Process commands (manual always works) ──
         try:
             cmd = cmd_q.get_nowait()
-            action = cmd['action']
+            action = cmd["action"]
 
             try:
-                if action == 'capture_now':
+                if action == "capture_now":
                     _pending_change = False
                     b64 = img_to_b64(process_image(capture_full()))
                     with _req_lock:
                         _current_req_id += 1
                         req = _current_req_id
                     out_q.put(("status", "Enviando imagem..."))
-                    threading.Thread(target=process_llm_bg, args=(req, [b64], AUTO_PROMPT), daemon=True).start()
+                    threading.Thread(
+                        target=process_llm_bg,
+                        args=(req, [b64], AUTO_PROMPT),
+                        daemon=True,
+                    ).start()
 
-                elif action == 'capture_region':
+                elif action == "capture_region":
                     _pending_change = False
-                    b64 = img_to_b64(process_image(capture_region(cmd['bbox'])))
+                    b64 = img_to_b64(process_image(capture_region(cmd["bbox"])))
                     with _req_lock:
                         _current_req_id += 1
                         req = _current_req_id
                     out_q.put(("status", "Enviando regiao..."))
-                    threading.Thread(target=process_llm_bg, args=(req, [b64], AUTO_PROMPT), daemon=True).start()
+                    threading.Thread(
+                        target=process_llm_bg,
+                        args=(req, [b64], AUTO_PROMPT),
+                        daemon=True,
+                    ).start()
 
-                elif action == 'multi_add':
+                elif action == "multi_add":
                     if len(multi_batch) >= 10:
                         logging.warning("[multi] batch limit reached (10)")
                         out_q.put(("status", "limite (10)"))
@@ -340,20 +391,24 @@ def capture_loop():
                     out_q.put(("multi_count", len(multi_batch)))
                     logging.info(f"[multi] +1 ({len(multi_batch)})")
 
-                elif action == 'multi_send':
+                elif action == "multi_send":
                     _pending_change = False
                     if multi_batch:
                         with _req_lock:
                             _current_req_id += 1
                             req = _current_req_id
                         out_q.put(("status", "Enviando lote..."))
-                        threading.Thread(target=process_llm_bg, args=(req, multi_batch, MULTI_PROMPT, True), daemon=True).start()
+                        threading.Thread(
+                            target=process_llm_bg,
+                            args=(req, multi_batch, MULTI_PROMPT, True),
+                            daemon=True,
+                        ).start()
                     else:
                         out_q.put(("status", "empty"))
                     multi_batch = []
                     multi_mode = False
 
-                elif action == 'multi_clear':
+                elif action == "multi_clear":
                     multi_batch = []
                     multi_mode = False
                     out_q.put(("multi_count", 0))
@@ -384,7 +439,9 @@ def capture_loop():
                     # Screen changed → start grace period (don't clear yet)
                     _pending_change = True
                     _pending_change_time = now
-                    logging.debug(f"screen changed, grace until {now + GRACE_PERIOD:.0f}")
+                    logging.debug(
+                        f"screen changed, grace until {now + GRACE_PERIOD:.0f}"
+                    )
 
             except Exception as e:
                 logging.error(f"capture: {e}")
@@ -404,7 +461,11 @@ def capture_loop():
                         with _req_lock:
                             _current_req_id += 1
                             req = _current_req_id
-                        threading.Thread(target=process_llm_bg, args=(req, [b64], AUTO_PROMPT), daemon=True).start()
+                        threading.Thread(
+                            target=process_llm_bg,
+                            args=(req, [b64], AUTO_PROMPT),
+                            daemon=True,
+                        ).start()
                         with _lock:
                             _last_api_call = time.time()
                     except Exception as e:
@@ -412,18 +473,20 @@ def capture_loop():
 
         stop.wait(max(CAPTURE_INTERVAL, 1))
 
+
 # ─── Region Selector ────────────────────────────────────────────────────────
+
 
 def select_region():
     sel = None
     win = tk.Toplevel()
     win.overrideredirect(True)
-    win.attributes('-alpha', 0.25, '-topmost', True)
-    win.state('zoomed')
-    win.configure(bg='black')
+    win.attributes("-alpha", 0.25, "-topmost", True)
+    win.state("zoomed")
+    win.configure(bg="black")
 
-    c = tk.Canvas(win, cursor='crosshair', highlightthickness=0)
-    c.pack(fill='both', expand=True)
+    c = tk.Canvas(win, cursor="crosshair", highlightthickness=0)
+    c.pack(fill="both", expand=True)
 
     sx = sy = 0
     rect = None
@@ -433,7 +496,7 @@ def select_region():
         sx, sy = e.x, e.y
         if rect:
             c.delete(rect)
-        rect = c.create_rectangle(e.x, e.y, e.x, e.y, outline='#00ff41', width=2)
+        rect = c.create_rectangle(e.x, e.y, e.x, e.y, outline="#00ff41", width=2)
 
     def drag(e):
         if rect:
@@ -457,29 +520,31 @@ def select_region():
             sel = (xs1, ys1, xs2, ys2)
         win.destroy()
 
-    win.bind('<Escape>', lambda e: win.destroy())
-    c.bind('<Button-1>', press)
-    c.bind('<B1-Motion>', drag)
-    c.bind('<ButtonRelease-1>', release)
+    win.bind("<Escape>", lambda e: win.destroy())
+    c.bind("<Button-1>", press)
+    c.bind("<B1-Motion>", drag)
+    c.bind("<ButtonRelease-1>", release)
 
     win.wait_window()
     return sel
 
+
 # ─── Overlay (discreto, estilo barra de tarefas) ────────────────────────────
 
-TASKBAR_BG = '#1e1e1e'
-MCQ_COLOR = '#3a6a3a'
-TEXT_COLOR = '#5a5a5a'
+TASKBAR_BG = "#1e1e1e"
+MCQ_COLOR = "#3a6a3a"
+TEXT_COLOR = "#5a5a5a"
+
 
 class Overlay:
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title('')
+        self.root.title("")
         self.root.overrideredirect(True)
-        self.root.attributes('-alpha', OPACITY, '-topmost', True)
-        
+        self.root.attributes("-alpha", OPACITY, "-topmost", True)
+
         # Fundo extremamente escuro para combinar com temas escuros e permitir drag
-        TASKBAR_BG = '#141414'
+        TASKBAR_BG = "#141414"
         self.root.configure(bg=TASKBAR_BG)
         self.root.resizable(False, False)
 
@@ -487,18 +552,26 @@ class Overlay:
         self._drag_data = {"x": 0, "y": 0}
 
         self.label = tk.Label(
-            self.root, text='',
-            fg='#7a7a7a', bg=TASKBAR_BG,
-            font=('Segoe UI', 10, 'bold'),
-            padx=8, pady=2, wraplength=450, justify='left'
+            self.root,
+            text="",
+            fg="#7a7a7a",
+            bg=TASKBAR_BG,
+            font=("Segoe UI", 10, "bold"),
+            padx=8,
+            pady=2,
+            wraplength=450,
+            justify="left",
         )
         self.label.pack()
 
         self.sub = tk.Label(
-            self.root, text='',
-            fg='#555555', bg=TASKBAR_BG,
-            font=('Segoe UI', 9),
-            padx=8, pady=0
+            self.root,
+            text="",
+            fg="#555555",
+            bg=TASKBAR_BG,
+            font=("Segoe UI", 9),
+            padx=8,
+            pady=0,
         )
         self.sub.pack()
 
@@ -510,30 +583,50 @@ class Overlay:
         self.root.update_idletasks()
         self._style_hidden()
         self._hotkeys()
-        self.label.config(text='?', fg='#888', font=('Consolas', 20, 'bold'))
-        self.sub.config(text='aguardando')
+        self.label.config(text="?", fg="#888", font=("Consolas", 20, "bold"))
+        self.sub.config(text="aguardando")
         self._corner()
         self.root.deiconify()
         self._setup_tray()
 
     def _create_icon_image(self):
-        img = Image.new('RGB', (64, 64), color=(30, 30, 30))
+        img = Image.new("RGB", (64, 64), color=(30, 30, 30))
         d = ImageDraw.Draw(img)
         d.rectangle([16, 16, 48, 48], outline=MCQ_COLOR, width=4)
         return img
 
     def _setup_tray(self):
         menu = pystray.Menu(
-            item('Capturar Agora (F4)', lambda: self.root.after(0, self._capture)),
-            item('Capturar Regiao (F3)', lambda: self.root.after(0, self._region)),
+            item(
+                "Capturar Agora (Ctrl+Shift+F4)",
+                lambda *a: self.root.after(0, self._capture),
+            ),
+            item(
+                "Capturar Regiao (Ctrl+Shift+F3)",
+                lambda *a: self.root.after(0, self._region),
+            ),
             pystray.Menu.SEPARATOR,
-            item('Multi: Add (F8)', lambda: self.root.after(0, self._multi_add)),
-            item('Multi: Enviar (F9)', lambda: self.root.after(0, self._multi_send)),
+            item(
+                "Multi: Add (Ctrl+Shift+F8)",
+                lambda *a: self.root.after(0, self._multi_add),
+            ),
+            item(
+                "Multi: Enviar (Ctrl+Shift+F9)",
+                lambda *a: self.root.after(0, self._multi_send),
+            ),
+            item(
+                "Mostrar/Ocultar (Ctrl+Shift+F2)",
+                lambda *a: self.root.after(0, self._toggle_vis),
+            ),
             pystray.Menu.SEPARATOR,
-            item('Sair (F12)', lambda: self.root.after(0, self.quit))
+            item("Sair (Ctrl+Shift+F12)", lambda *a: self.root.after(0, self.quit)),
         )
-        self.tray_icon = pystray.Icon("c-answer", self._create_icon_image(), "c-answer", menu)
-        threading.Thread(target=lambda: self.tray_icon.run(setup=self._apply_dark_tray), daemon=True).start()
+        self.tray_icon = pystray.Icon(
+            "c-answer", self._create_icon_image(), "c-answer", menu
+        )
+        threading.Thread(
+            target=lambda: self.tray_icon.run(setup=self._apply_dark_tray), daemon=True
+        ).start()
 
     def _apply_dark_tray(self, icon):
         try:
@@ -548,7 +641,18 @@ class Overlay:
         icon.visible = True
 
     def _style_hidden(self):
-        hwnd = ctypes.windll.user32.GetParent(self.root.winfo_id())
+        user32 = ctypes.windll.user32
+        # restype/argtypes obrigatórios em 64-bit para não truncar HWND
+        user32.GetParent.restype = ctypes.wintypes.HWND
+        user32.GetWindowLongW.argtypes = [ctypes.wintypes.HWND, ctypes.c_int]
+        user32.GetWindowLongW.restype = ctypes.wintypes.LONG
+        user32.SetWindowLongW.argtypes = [
+            ctypes.wintypes.HWND,
+            ctypes.c_int,
+            ctypes.wintypes.LONG,
+        ]
+        user32.SetWindowLongW.restype = ctypes.wintypes.LONG
+        hwnd = user32.GetParent(self.root.winfo_id())
         GWL_EXSTYLE = -20
         # Flags:
         # 0x80000 = WS_EX_LAYERED (suporte a alpha)
@@ -556,8 +660,8 @@ class Overlay:
         # 0x08000000 = WS_EX_NOACTIVATE (não rouba o foco do browser)
         # Removido: 0x20 (WS_EX_TRANSPARENT) para permitir que o mouse interaja com a janela!
         flags = 0x80000 | 0x80 | 0x08000000
-        curr = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
-        ctypes.windll.user32.SetWindowLongW(hwnd, GWL_EXSTYLE, curr | flags)
+        curr = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+        user32.SetWindowLongW(hwnd, GWL_EXSTYLE, curr | flags)
 
     def _start_drag(self, event):
         self._drag_data["x"] = event.x_root - self.root.winfo_x()
@@ -566,11 +670,11 @@ class Overlay:
     def _on_drag(self, event):
         x = event.x_root - self._drag_data["x"]
         y = event.y_root - self._drag_data["y"]
-        self.root.geometry(f'+{x}+{y}')
+        self.root.geometry(f"+{x}+{y}")
 
     def _corner(self):
         # Apenas posiciona no canto na primeira vez, se o usuário arrastar não reseta mais.
-        if not hasattr(self, '_placed_initially'):
+        if not hasattr(self, "_placed_initially"):
             self.root.update_idletasks()
             w = self.root.winfo_reqwidth()
             h = self.root.winfo_reqheight()
@@ -578,26 +682,60 @@ class Overlay:
             sh = self.root.winfo_screenheight()
             x = sw - w - 300
             y = sh - h - 48
-            self.root.geometry(f'+{x}+{y}')
+            self.root.geometry(f"+{x}+{y}")
             self._placed_initially = True
 
     def _hotkeys(self):
         user32 = ctypes.windll.user32
-        # Avoid F5 (Chrome hard refresh), avoid F12 (DevTools opens briefly)
+        # argtypes/restype obrigatórios em 64-bit: sem eles o ctypes assume
+        # c_int (32-bit) para todos os args/retornos, truncando HWND e
+        # ponteiros de MSG.
+        user32.RegisterHotKey.argtypes = [
+            ctypes.wintypes.HWND,
+            ctypes.c_int,
+            ctypes.c_uint,
+            ctypes.c_uint,
+        ]
+        user32.RegisterHotKey.restype = ctypes.wintypes.BOOL
+        user32.UnregisterHotKey.argtypes = [ctypes.wintypes.HWND, ctypes.c_int]
+        user32.UnregisterHotKey.restype = ctypes.wintypes.BOOL
+        user32.GetMessageW.argtypes = [
+            ctypes.POINTER(ctypes.wintypes.MSG),
+            ctypes.wintypes.HWND,
+            ctypes.c_uint,
+            ctypes.c_uint,
+        ]
+        user32.GetMessageW.restype = ctypes.wintypes.BOOL
+        # Chrome usa F-keys SÓ sem modificadores (F1 ajuda, F3 buscar, F5
+        # recarregar, F6 foco, F7 caret, F11 fullscreen, F12 DevTools) e
+        # Ctrl+Shift SÓ com letras (B, D, G, I, J, N, T, W...). Logo
+        # Ctrl+Shift+Fx NÃO conflita com nada no Chrome: o acorde completo é
+        # interceptado pelo Windows antes de chegar ao navegador, e as
+        # F-keys bare do Chrome continuam funcionando normalmente.
+        # F2/F4/F8/F9 nem como bare o Chrome usa; F3/F12 ele usa bare mas o
+        # modificador Ctrl+Shift isola totalmente.
+        MOD_CTRL, MOD_SHIFT, MOD_NOREPEAT = 0x0002, 0x0004, 0x4000
+        MOD = MOD_CTRL | MOD_SHIFT | MOD_NOREPEAT
         binds = {
-            1: (0x0002 | 0x0004, 0x7B),  # Ctrl+Shift+F12  quit
-            2: (0x0002 | 0x0004, 0x72),  # Ctrl+Shift+F3   region (F3=find, modifiers safe)
-            3: (0x0002 | 0x0004, 0x73),  # Ctrl+Shift+F4   capture (no Chrome conflict)
-            4: (0x0002 | 0x0004, 0x78),  # Ctrl+Shift+F8   multi add (F8=unused in Chrome)
-            5: (0x0002 | 0x0004, 0x79),  # Ctrl+Shift+F9   multi send (F9=unused in Chrome)
-            6: (0x0002 | 0x0004, 0x71),  # Ctrl+Shift+F2   toggle visibility
+            1: (MOD, 0x7B),  # Ctrl+Shift+F12  quit
+            2: (MOD, 0x72),  # Ctrl+Shift+F3   region
+            3: (MOD, 0x73),  # Ctrl+Shift+F4   capture
+            4: (MOD, 0x78),  # Ctrl+Shift+F8   multi add
+            5: (MOD, 0x79),  # Ctrl+Shift+F9   multi send
+            6: (MOD, 0x71),  # Ctrl+Shift+F2   toggle visibility
         }
-        for hid, (mod, vk) in binds.items():
-            user32.RegisterHotKey(None, hid, mod, vk)
 
         def listen():
+            # RegisterHotKey com hWnd=NULL posta WM_HOTKEY na fila da thread
+            # que chamou RegisterHotKey. Precisa ser a MESMA thread do loop
+            # GetMessageW abaixo, senão as mensagens nunca chegam aqui.
+            for hid, (mod, vk) in binds.items():
+                if not user32.RegisterHotKey(None, hid, mod, vk):
+                    logging.warning(
+                        f"RegisterHotKey falhou para id {hid} (vk=0x{vk:X})"
+                    )
             msg = ctypes.wintypes.MSG()
-            while user32.GetMessageW(ctypes.byref(msg), None, 0, 0):
+            while user32.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
                 if msg.message == 0x0312:
                     if msg.wParam == 1:
                         self.root.after(0, self.quit)
@@ -622,57 +760,59 @@ class Overlay:
         time.sleep(0.15)
         sel = select_region()
         if sel:
-            cmd_q.put({'action': 'capture_region', 'bbox': sel})
+            cmd_q.put({"action": "capture_region", "bbox": sel})
 
     def _capture(self):
-        cmd_q.put({'action': 'capture_now'})
+        cmd_q.put({"action": "capture_now"})
 
     def _multi_add(self):
-        cmd_q.put({'action': 'multi_add'})
+        cmd_q.put({"action": "multi_add"})
 
     def _multi_send(self):
-        cmd_q.put({'action': 'multi_send'})
+        cmd_q.put({"action": "multi_send"})
 
     def _toggle_vis(self):
-        if self.root.state() == 'withdrawn':
+        if self.root.state() == "withdrawn":
             self.root.deiconify()
         else:
             self.root.withdraw()
 
     def show(self, tag, data):
-        if tag == 'answer':
+        if tag == "answer":
             atype, display = parse_answer(data)
-            if atype == 'none':
-                self.label.config(text='', font=('Segoe UI', 10, 'bold'))
-                self.sub.config(text='')
+            if atype == "none":
+                self.label.config(text="", font=("Segoe UI", 10, "bold"))
+                self.sub.config(text="")
                 self.root.withdraw()
-            elif atype == 'key':
-                self.label.config(text='KEY?', fg='#a55', font=('Segoe UI', 11, 'bold'))
-                self.sub.config(text='api_key invalida')
+            elif atype == "key":
+                self.label.config(text="KEY?", fg="#a55", font=("Segoe UI", 11, "bold"))
+                self.sub.config(text="api_key invalida")
                 self._corner()
                 self.root.deiconify()
             else:
                 # Cores extremamente discretas para não chamar atenção
-                fg_color = '#6b6b6b' if atype == 'mcq' else '#555555'
-                font_choice = ('Segoe UI', 10, 'bold') if atype == 'mcq' else ('Segoe UI', 9)
+                fg_color = "#6b6b6b" if atype == "mcq" else "#555555"
+                font_choice = (
+                    ("Segoe UI", 10, "bold") if atype == "mcq" else ("Segoe UI", 9)
+                )
                 self.label.config(text=display, fg=fg_color, font=font_choice)
-                self.sub.config(text='')
+                self.sub.config(text="")
                 self._corner()
                 self.root.deiconify()
-        elif tag == 'clear':
-            self.label.config(text='')
-            self.sub.config(text='')
+        elif tag == "clear":
+            self.label.config(text="")
+            self.sub.config(text="")
             self.root.withdraw()
-        elif tag == 'multi_count':
+        elif tag == "multi_count":
             if data > 0:
-                self.sub.config(text=f'[{data}]')
-                self.label.config(text='···')
+                self.sub.config(text=f"[{data}]")
+                self.label.config(text="···")
                 self.root.deiconify()
             else:
-                self.sub.config(text='')
-                self.label.config(text='')
+                self.sub.config(text="")
+                self.label.config(text="")
                 self.root.withdraw()
-        elif tag == 'status':
+        elif tag == "status":
             self.sub.config(text=data)
 
     def quit(self):
@@ -681,17 +821,22 @@ class Overlay:
             self.tray_icon.stop()
         self.root.destroy()
 
+
 # ─── Main ────────────────────────────────────────────────────────────────────
+
 
 def main():
     ov = Overlay()
 
     def poll():
-        try:
-            tag, data = out_q.get_nowait()
-            ov.show(tag, data)
-        except (Empty, ValueError):
-            pass
+        # Drena toda a fila a cada ciclo para não atrasar a exibição
+        # quando vários eventos (status + answer) chegam juntos.
+        while True:
+            try:
+                tag, data = out_q.get_nowait()
+                ov.show(tag, data)
+            except (Empty, ValueError):
+                break
         try:
             ov.root.after(250, poll)
         except tk.TclError:
@@ -705,5 +850,6 @@ def main():
     except KeyboardInterrupt:
         ov.quit()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()
