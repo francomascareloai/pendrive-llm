@@ -426,12 +426,13 @@ def capture_loop():
                     b64 = img_to_b64(process_image(capture_full()))
                     multi_batch.append(b64)
                     multi_mode = True
-                    out_q.put(("multi_count", len(multi_batch)))
+                    out_q.put(("multi_adding", len(multi_batch)))
                     logging.info(f"[multi] +1 ({len(multi_batch)})")
 
                 elif action == "multi_send":
                     _pending_change = False
                     if multi_batch:
+                        out_q.put(("multi_count", len(multi_batch)))
                         with _req_lock:
                             _current_req_id += 1
                             req = _current_req_id
@@ -854,6 +855,11 @@ class Overlay:
             self.label.config(text="")
             self.sub.config(text="")
             self.root.withdraw()
+        elif tag == "multi_adding":
+            self.label.config(text="···", fg="#6b6b6b", font=("Segoe UI", 10, "bold"))
+            self.sub.config(text="+" * data)
+            self._corner()
+            self.root.deiconify()
         elif tag == "multi_count":
             if data > 0:
                 self.sub.config(text=f"[{data}]")
