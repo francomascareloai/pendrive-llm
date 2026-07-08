@@ -73,3 +73,6 @@ ehthumbs.db
 .vscode/
 .idea/
 *.swp
+
+# ── Scripts de teste temporários da auditoria ──
+/_t/
